@@ -96,6 +96,101 @@ const initialPhotos: Photo[] = [
     },
 ]
 
+function PhotoForm({
+    initial,
+    onSave,
+    onCancel,
+    submitLabel = '保存',
+}: {
+    initial: { title: string; description: string; url: string }
+    onSave: (data: { title: string; description: string; url: string }) => void
+    onCancel: () => void
+    submitLabel?: string
+}) {
+    const [form, setForm] = useState(initial)
+    const [fileName, setFileName] = useState('選択されていません')
+    const handleChange = (
+        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    ) => {
+        setForm({ ...form, [e.target.name]: e.target.value })
+    }
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (file) {
+            const url = URL.createObjectURL(file)
+            setForm((prev) => ({ ...prev, url }))
+            setFileName(file.name)
+        } else {
+            setFileName('選択されていません')
+        }
+    }
+    return (
+        <form
+            className='flex flex-col gap-4'
+            onSubmit={(e) => {
+                e.preventDefault()
+                onSave(form)
+            }}
+        >
+            {form.url && (
+                <img
+                    src={form.url}
+                    alt='preview'
+                    className='w-full max-h-[40vh] object-contain rounded mb-2 mx-auto'
+                />
+            )}
+            <label className='flex flex-col gap-1'>
+                <span className='mb-1'>写真アップロード</span>
+                <div className='flex items-center gap-2 w-full justify-start'>
+                    <span className='relative inline-block bg-gray-100 border rounded px-4 py-2 cursor-pointer hover:bg-gray-200 transition-colors text-gray-800 font-medium w-1/4 min-w-[60px] text-center text-xs whitespace-nowrap'>
+                        ファイルを選択
+                        <input
+                            type='file'
+                            accept='image/*'
+                            onChange={handleFileChange}
+                            className='absolute inset-0 w-full h-full opacity-0 cursor-pointer'
+                            style={{ left: 0, top: 0 }}
+                        />
+                    </span>
+                    <span className='text-gray-600 text-sm break-all'>
+                        {fileName}
+                    </span>
+                </div>
+            </label>
+            <label className='flex flex-col gap-1'>
+                <span>タイトル</span>
+                <input
+                    name='title'
+                    value={form.title}
+                    onChange={handleChange}
+                    className='border rounded px-2 py-1'
+                />
+            </label>
+            <label className='flex flex-col gap-1'>
+                <span>説明</span>
+                <textarea
+                    name='description'
+                    value={form.description}
+                    onChange={handleChange}
+                    className='border rounded px-2 py-1'
+                />
+            </label>
+            <DialogFooter>
+                <Button type='submit'>{submitLabel}</Button>
+                <DialogClose asChild>
+                    <Button
+                        type='button'
+                        variant='secondary'
+                        onClick={onCancel}
+                    >
+                        キャンセル
+                    </Button>
+                </DialogClose>
+            </DialogFooter>
+        </form>
+    )
+}
+
 export default function Home() {
     const [photos, setPhotos] = useState<Photo[]>(initialPhotos)
     const [editPhoto, setEditPhoto] = useState<Photo | null>(null)
@@ -105,7 +200,7 @@ export default function Home() {
         url: string
     }>({ title: '', description: '', url: '' })
     const [isDialogOpen, setIsDialogOpen] = useState(false)
-    const [fileName, setFileName] = useState('選択されていません')
+    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
 
     const handleEditClick = (photo: Photo) => {
         setEditPhoto(photo)
@@ -115,12 +210,6 @@ export default function Home() {
             url: photo.url,
         })
         setIsDialogOpen(true)
-    }
-
-    const handleEditChange = (
-        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-    ) => {
-        setEditData({ ...editData, [e.target.name]: e.target.value })
     }
 
     const handleEditSave = () => {
@@ -137,20 +226,27 @@ export default function Home() {
         setPhotos(photos.filter((p) => p.id !== id))
     }
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (file) {
-            const url = URL.createObjectURL(file)
-            setEditData((prev) => ({ ...prev, url }))
-            setFileName(file.name)
-        } else {
-            setFileName('選択されていません')
-        }
+    const handleAddPhoto = (data: {
+        title: string
+        description: string
+        url: string
+    }) => {
+        setPhotos([
+            {
+                id: Math.max(0, ...photos.map((p) => p.id)) + 1,
+                title: data.title,
+                description: data.description,
+                url: data.url,
+                date: new Date().toLocaleString(),
+            },
+            ...photos,
+        ])
+        setIsAddDialogOpen(false)
     }
 
     return (
         <div className='min-h-screen'>
-            <Header />
+            <Header onAddPhotoClick={() => setIsAddDialogOpen(true)} />
             <main className='container mx-auto px-4 py-8'>
                 <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8'>
                     {photos.map((photo) => (
@@ -198,83 +294,13 @@ export default function Home() {
                                                     写真を編集
                                                 </DialogTitle>
                                             </DialogHeader>
-                                            <form
-                                                className='flex flex-col gap-4'
-                                                onSubmit={(e) => {
-                                                    e.preventDefault()
-                                                    handleEditSave()
-                                                }}
-                                            >
-                                                {editData.url && (
-                                                    <img
-                                                        src={editData.url}
-                                                        alt='preview'
-                                                        className='w-full max-h-[40vh] object-contain rounded mb-2 mx-auto'
-                                                    />
-                                                )}
-                                                <label className='flex flex-col gap-1'>
-                                                    <span className='mb-1'>
-                                                        写真アップロード
-                                                    </span>
-                                                    <div className='flex items-center gap-2 w-full justify-start'>
-                                                        <span className='relative inline-block bg-gray-100 border rounded px-4 py-2 cursor-pointer hover:bg-gray-200 transition-colors text-gray-800 font-medium w-1/4 min-w-[60px] text-center text-xs whitespace-nowrap'>
-                                                            ファイルを選択
-                                                            <input
-                                                                type='file'
-                                                                accept='image/*'
-                                                                onChange={
-                                                                    handleFileChange
-                                                                }
-                                                                className='absolute inset-0 w-full h-full opacity-0 cursor-pointer'
-                                                                style={{
-                                                                    left: 0,
-                                                                    top: 0,
-                                                                }}
-                                                            />
-                                                        </span>
-                                                        <span className='text-gray-600 text-sm break-all'>
-                                                            {fileName}
-                                                        </span>
-                                                    </div>
-                                                </label>
-                                                <label className='flex flex-col gap-1'>
-                                                    <span>タイトル</span>
-                                                    <input
-                                                        name='title'
-                                                        value={editData.title}
-                                                        onChange={
-                                                            handleEditChange
-                                                        }
-                                                        className='border rounded px-2 py-1'
-                                                    />
-                                                </label>
-                                                <label className='flex flex-col gap-1'>
-                                                    <span>説明</span>
-                                                    <textarea
-                                                        name='description'
-                                                        value={
-                                                            editData.description
-                                                        }
-                                                        onChange={
-                                                            handleEditChange
-                                                        }
-                                                        className='border rounded px-2 py-1'
-                                                    />
-                                                </label>
-                                                <DialogFooter>
-                                                    <Button type='submit'>
-                                                        保存
-                                                    </Button>
-                                                    <DialogClose asChild>
-                                                        <Button
-                                                            type='button'
-                                                            variant='secondary'
-                                                        >
-                                                            キャンセル
-                                                        </Button>
-                                                    </DialogClose>
-                                                </DialogFooter>
-                                            </form>
+                                            <PhotoForm
+                                                initial={editData}
+                                                onSave={handleEditSave}
+                                                onCancel={() =>
+                                                    setIsDialogOpen(false)
+                                                }
+                                            />
                                         </DialogContent>
                                     </Dialog>
                                     <Button
@@ -290,6 +316,21 @@ export default function Home() {
                         </Card>
                     ))}
                 </div>
+                <Dialog
+                    open={isAddDialogOpen}
+                    onOpenChange={setIsAddDialogOpen}
+                >
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>写真を追加</DialogTitle>
+                        </DialogHeader>
+                        <PhotoForm
+                            initial={{ title: '', description: '', url: '' }}
+                            onSave={handleAddPhoto}
+                            onCancel={() => setIsAddDialogOpen(false)}
+                        />
+                    </DialogContent>
+                </Dialog>
             </main>
         </div>
     )

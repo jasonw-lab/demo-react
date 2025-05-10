@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Button } from './ui/button'
 
-export function Header() {
+export function Header({ onAddPhotoClick }: { onAddPhotoClick?: () => void }) {
     return (
         <header className='sticky top-0 z-30 shadow-lg bg-gradient-to-r from-gray-100 via-gray-200 to-gray-300 backdrop-blur border-b'>
             <div className='container mx-auto px-4 py-4 flex flex-col md:flex-row items-center md:justify-between gap-2'>
@@ -26,10 +26,10 @@ export function Header() {
                     </Button>
                     <Button
                         variant='ghost'
-                        asChild
                         className='text-gray-700 hover:bg-gray-300/40'
+                        onClick={onAddPhotoClick}
                     >
-                        <Link href='/add'>写真追加</Link>
+                        写真追加
                     </Button>
                     <Button
                         variant='ghost'
