@@ -1,10 +1,29 @@
+'use client'
+import React, { useState } from 'react'
 import { Header } from '@/components/Header'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Pencil, Trash } from 'lucide-react'
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+    DialogTrigger,
+    DialogClose,
+} from '@/components/ui/dialog'
+
+type Photo = {
+    id: number
+    title: string
+    description: string
+    date: string
+    url: string
+}
 
 // 仮の写真データ
-const photos = [
+const initialPhotos: Photo[] = [
     {
         id: 1,
         title: '桜の風景',
@@ -78,6 +97,45 @@ const photos = [
 ]
 
 export default function Home() {
+    const [photos, setPhotos] = useState<Photo[]>(initialPhotos)
+    const [editPhoto, setEditPhoto] = useState<Photo | null>(null)
+    const [editData, setEditData] = useState<{
+        title: string
+        description: string
+        url: string
+    }>({ title: '', description: '', url: '' })
+    const [isDialogOpen, setIsDialogOpen] = useState(false)
+
+    const handleEditClick = (photo: Photo) => {
+        setEditPhoto(photo)
+        setEditData({
+            title: photo.title,
+            description: photo.description,
+            url: photo.url,
+        })
+        setIsDialogOpen(true)
+    }
+
+    const handleEditChange = (
+        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    ) => {
+        setEditData({ ...editData, [e.target.name]: e.target.value })
+    }
+
+    const handleEditSave = () => {
+        if (!editPhoto) return
+        setPhotos(
+            photos.map((p) =>
+                p.id === editPhoto.id ? { ...p, ...editData } : p
+            )
+        )
+        setIsDialogOpen(false)
+    }
+
+    const handleDelete = (id: number) => {
+        setPhotos(photos.filter((p) => p.id !== id))
+    }
+
     return (
         <div className='min-h-screen'>
             <Header />
@@ -103,17 +161,94 @@ export default function Home() {
                                     </div>
                                 </div>
                                 <div className='absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition z-10'>
-                                    <Button
-                                        size='icon'
-                                        variant='secondary'
-                                        className='shadow bg-white/80 hover:bg-white'
+                                    <Dialog
+                                        open={
+                                            isDialogOpen &&
+                                            editPhoto?.id === photo.id
+                                        }
+                                        onOpenChange={setIsDialogOpen}
                                     >
-                                        <Pencil className='w-4 h-4 text-gray-700' />
-                                    </Button>
+                                        <DialogTrigger asChild>
+                                            <Button
+                                                size='icon'
+                                                variant='secondary'
+                                                className='shadow bg-white/80 hover:bg-white'
+                                                onClick={() =>
+                                                    handleEditClick(photo)
+                                                }
+                                            >
+                                                <Pencil className='w-4 h-4 text-gray-700' />
+                                            </Button>
+                                        </DialogTrigger>
+                                        <DialogContent>
+                                            <DialogHeader>
+                                                <DialogTitle>
+                                                    写真を編集
+                                                </DialogTitle>
+                                            </DialogHeader>
+                                            <form
+                                                className='flex flex-col gap-4'
+                                                onSubmit={(e) => {
+                                                    e.preventDefault()
+                                                    handleEditSave()
+                                                }}
+                                            >
+                                                <label className='flex flex-col gap-1'>
+                                                    <span>写真URL</span>
+                                                    <input
+                                                        name='url'
+                                                        value={editData.url}
+                                                        onChange={
+                                                            handleEditChange
+                                                        }
+                                                        className='border rounded px-2 py-1'
+                                                    />
+                                                </label>
+                                                <label className='flex flex-col gap-1'>
+                                                    <span>タイトル</span>
+                                                    <input
+                                                        name='title'
+                                                        value={editData.title}
+                                                        onChange={
+                                                            handleEditChange
+                                                        }
+                                                        className='border rounded px-2 py-1'
+                                                    />
+                                                </label>
+                                                <label className='flex flex-col gap-1'>
+                                                    <span>説明</span>
+                                                    <textarea
+                                                        name='description'
+                                                        value={
+                                                            editData.description
+                                                        }
+                                                        onChange={
+                                                            handleEditChange
+                                                        }
+                                                        className='border rounded px-2 py-1'
+                                                    />
+                                                </label>
+                                                <DialogFooter>
+                                                    <Button type='submit'>
+                                                        保存
+                                                    </Button>
+                                                    <DialogClose asChild>
+                                                        <Button
+                                                            type='button'
+                                                            variant='secondary'
+                                                        >
+                                                            キャンセル
+                                                        </Button>
+                                                    </DialogClose>
+                                                </DialogFooter>
+                                            </form>
+                                        </DialogContent>
+                                    </Dialog>
                                     <Button
                                         size='icon'
                                         variant='secondary'
                                         className='shadow bg-white/80 hover:bg-white'
+                                        onClick={() => handleDelete(photo.id)}
                                     >
                                         <Trash className='w-4 h-4 text-gray-700' />
                                     </Button>
