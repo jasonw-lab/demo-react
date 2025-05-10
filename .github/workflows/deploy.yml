@@ -31,48 +31,21 @@ jobs:
           CHANGED_FILES=$(git diff --name-only HEAD^ HEAD)
 
           # Initialize variables to track which projects have changes
-          BOOKING_CHANGED=false
           GALLERY_CHANGED=false
-          WEATHER_CHANGED=false
-          MEAL_CHANGED=false
 
           # Check for changes in specific directories
           # Using grep to avoid subshell issues with while loops
-          if echo "$CHANGED_FILES" | grep -q "^BookingHotel/"; then
-            BOOKING_CHANGED=true
-          fi
-
-          if echo "$CHANGED_FILES" | grep -q "^PhotoGallary/"; then
+          if echo "$CHANGED_FILES" | grep -q "^photo-gallary/"; then
             GALLERY_CHANGED=true
           fi
 
-          if echo "$CHANGED_FILES" | grep -q "^Weather/"; then
-            WEATHER_CHANGED=true
-          fi
-
-          if echo "$CHANGED_FILES" | grep -q "^mealplanner/"; then
-            MEAL_CHANGED=true
-          fi
-
           # Set outputs for use in later steps
-          echo "booking_changed=$BOOKING_CHANGED" >> $GITHUB_OUTPUT
           echo "gallery_changed=$GALLERY_CHANGED" >> $GITHUB_OUTPUT
-          echo "weather_changed=$WEATHER_CHANGED" >> $GITHUB_OUTPUT
-          echo "meal_changed=$MEAL_CHANGED" >> $GITHUB_OUTPUT
 
           # Build the command arguments
           ARGS=""
-          if [[ "$BOOKING_CHANGED" == "true" ]]; then
-            ARGS="$ARGS booking"
-          fi
           if [[ "$GALLERY_CHANGED" == "true" ]]; then
-            ARGS="$ARGS gallery"
-          fi
-          if [[ "$WEATHER_CHANGED" == "true" ]]; then
-            ARGS="$ARGS weather"
-          fi
-          if [[ "$MEAL_CHANGED" == "true" ]]; then
-            ARGS="$ARGS meal"
+            ARGS="$ARGS photo-gallary"
           fi
 
           # Trim leading whitespace
@@ -86,7 +59,7 @@ jobs:
           fi
 
       - name: Deploy to VPS
-        if: steps.changes.outputs.booking_changed == 'true' || steps.changes.outputs.gallery_changed == 'true' || steps.changes.outputs.weather_changed == 'true' || steps.changes.outputs.meal_changed == 'true'
+        if: steps.changes.outputs.gallery_changed == 'true'
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.VPS_HOST }}
