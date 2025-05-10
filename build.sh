@@ -30,8 +30,10 @@ build_photo_gallary() {
   if [ -d "$CURRENT_DIR/$project_name" ]; then
     echo "Building $project_name project..."
     cd "$CURRENT_DIR/$project_name"
-    npm install
-    npm run build
+    pnpm install
+#    npm run build
+# Use pnpm to build the project
+    npx next build
     PHOTO_GALLARY_BUILT=true
   else
     echo "Error: $project_name project folder does not exist."
@@ -109,7 +111,7 @@ clean_and_copy_project() {
 
     if [ "$project_flag" = true ]; then
         mkdir -p "$TARGET_DIR/$target_subdir"
-        cp -r "$CURRENT_DIR/$source_dir/dist/"* "$TARGET_DIR/$target_subdir/"
+        cp -r "$CURRENT_DIR/$source_dir/out/"* "$TARGET_DIR/$target_subdir/"
         echo "Copied $project_name build to $TARGET_DIR/$target_subdir/"
     fi
 }
@@ -131,7 +133,7 @@ echo "Copying build results to $TARGET_DIR"
 for project_name in $CUSTOM_PROJECTS_LIST; do
   if [ -n "$project_name" ]; then
     mkdir -p "$TARGET_DIR/$project_name"
-    cp -r "$CURRENT_DIR/$project_name/dist/"* "$TARGET_DIR/$project_name/"
+    cp -r "$CURRENT_DIR/$project_name/out/"* "$TARGET_DIR/$project_name/"
     echo "Copied $project_name build to $TARGET_DIR/$project_name/"
   fi
 done
