@@ -1,0 +1,100 @@
+name: Deploy to VPS
+
+# This workflow automatically deploys changes to a VPS when code is pushed to the repository.
+# It detects which directories have changes and only deploys the affected applications.
+#
+# Required GitHub Secrets:
+# - VPS_HOST: The hostname or IP address of your VPS
+# - VPS_USERNAME: The SSH username for your VPS
+# - VPS_SSH_KEY: The private SSH key for authentication
+# - VPS_PORT: The SSH port (usually 22)
+# - PROJECT_PATH: The full path to the project directory on your VPS
+
+on:
+  push:
+    branches:
+      - develop  # or master, depending on your default branch name
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Fetch all history for all branches and tags
+
+      - name: Detect changed directories
+        id: changes
+        run: |
+          # Get the list of changed files between the current commit and the previous one
+          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD)
+
+          # Initialize variables to track which projects have changes
+          BOOKING_CHANGED=false
+          GALLERY_CHANGED=false
+          WEATHER_CHANGED=false
+          MEAL_CHANGED=false
+
+          # Check for changes in specific directories
+          # Using grep to avoid subshell issues with while loops
+          if echo "$CHANGED_FILES" | grep -q "^BookingHotel/"; then
+            BOOKING_CHANGED=true
+          fi
+
+          if echo "$CHANGED_FILES" | grep -q "^PhotoGallary/"; then
+            GALLERY_CHANGED=true
+          fi
+
+          if echo "$CHANGED_FILES" | grep -q "^Weather/"; then
+            WEATHER_CHANGED=true
+          fi
+
+          if echo "$CHANGED_FILES" | grep -q "^mealplanner/"; then
+            MEAL_CHANGED=true
+          fi
+
+          # Set outputs for use in later steps
+          echo "booking_changed=$BOOKING_CHANGED" >> $GITHUB_OUTPUT
+          echo "gallery_changed=$GALLERY_CHANGED" >> $GITHUB_OUTPUT
+          echo "weather_changed=$WEATHER_CHANGED" >> $GITHUB_OUTPUT
+          echo "meal_changed=$MEAL_CHANGED" >> $GITHUB_OUTPUT
+
+          # Build the command arguments
+          ARGS=""
+          if [[ "$BOOKING_CHANGED" == "true" ]]; then
+            ARGS="$ARGS booking"
+          fi
+          if [[ "$GALLERY_CHANGED" == "true" ]]; then
+            ARGS="$ARGS gallery"
+          fi
+          if [[ "$WEATHER_CHANGED" == "true" ]]; then
+            ARGS="$ARGS weather"
+          fi
+          if [[ "$MEAL_CHANGED" == "true" ]]; then
+            ARGS="$ARGS meal"
+          fi
+
+          # Trim leading whitespace
+          ARGS=$(echo "$ARGS" | xargs)
+
+          # Set the build command output
+          if [[ -n "$ARGS" ]]; then
+            echo "build_args=$ARGS" >> $GITHUB_OUTPUT
+          else
+            echo "build_args=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy to VPS
+        if: steps.changes.outputs.booking_changed == 'true' || steps.changes.outputs.gallery_changed == 'true' || steps.changes.outputs.weather_changed == 'true' || steps.changes.outputs.meal_changed == 'true'
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            echo "Working directory: ${{ secrets.PROJECT_PATH }}"
+            cd ${{ secrets.PROJECT_PATH }}
+            git pull
+            ./build.sh ${{ steps.changes.outputs.build_args }}
