@@ -105,6 +105,7 @@ export default function Home() {
         url: string
     }>({ title: '', description: '', url: '' })
     const [isDialogOpen, setIsDialogOpen] = useState(false)
+    const [fileName, setFileName] = useState('選択されていません')
 
     const handleEditClick = (photo: Photo) => {
         setEditPhoto(photo)
@@ -134,6 +135,17 @@ export default function Home() {
 
     const handleDelete = (id: number) => {
         setPhotos(photos.filter((p) => p.id !== id))
+    }
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (file) {
+            const url = URL.createObjectURL(file)
+            setEditData((prev) => ({ ...prev, url }))
+            setFileName(file.name)
+        } else {
+            setFileName('選択されていません')
+        }
     }
 
     return (
@@ -193,16 +205,37 @@ export default function Home() {
                                                     handleEditSave()
                                                 }}
                                             >
-                                                <label className='flex flex-col gap-1'>
-                                                    <span>写真URL</span>
-                                                    <input
-                                                        name='url'
-                                                        value={editData.url}
-                                                        onChange={
-                                                            handleEditChange
-                                                        }
-                                                        className='border rounded px-2 py-1'
+                                                {editData.url && (
+                                                    <img
+                                                        src={editData.url}
+                                                        alt='preview'
+                                                        className='w-full max-h-[40vh] object-contain rounded mb-2 mx-auto'
                                                     />
+                                                )}
+                                                <label className='flex flex-col gap-1'>
+                                                    <span className='mb-1'>
+                                                        写真アップロード
+                                                    </span>
+                                                    <div className='flex items-center gap-2 w-full justify-start'>
+                                                        <span className='relative inline-block bg-gray-100 border rounded px-4 py-2 cursor-pointer hover:bg-gray-200 transition-colors text-gray-800 font-medium w-1/4 min-w-[60px] text-center text-xs whitespace-nowrap'>
+                                                            ファイルを選択
+                                                            <input
+                                                                type='file'
+                                                                accept='image/*'
+                                                                onChange={
+                                                                    handleFileChange
+                                                                }
+                                                                className='absolute inset-0 w-full h-full opacity-0 cursor-pointer'
+                                                                style={{
+                                                                    left: 0,
+                                                                    top: 0,
+                                                                }}
+                                                            />
+                                                        </span>
+                                                        <span className='text-gray-600 text-sm break-all'>
+                                                            {fileName}
+                                                        </span>
+                                                    </div>
                                                 </label>
                                                 <label className='flex flex-col gap-1'>
                                                     <span>タイトル</span>
