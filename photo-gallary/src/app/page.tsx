@@ -212,12 +212,14 @@ export default function Home() {
         setIsDialogOpen(true)
     }
 
-    const handleEditSave = () => {
+    const handleEditSave = (data: {
+        title: string
+        description: string
+        url: string
+    }) => {
         if (!editPhoto) return
         setPhotos(
-            photos.map((p) =>
-                p.id === editPhoto.id ? { ...p, ...editData } : p
-            )
+            photos.map((p) => (p.id === editPhoto.id ? { ...p, ...data } : p))
         )
         setIsDialogOpen(false)
     }
