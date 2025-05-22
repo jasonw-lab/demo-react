@@ -62,6 +62,41 @@ export async function createPhoto(photoData: PhotoInput): Promise<Photo> {
   return response.json()
 }
 
+// Create multiple photos
+export async function createMultiplePhotos(
+  files: File[], 
+  baseTitle: string, 
+  baseDescription: string
+): Promise<Photo[]> {
+  // Create a single FormData object for all files
+  const formData = new FormData()
+
+  // Add the base title and description
+  if (baseTitle) {
+    formData.append('title', baseTitle)
+  }
+
+  formData.append('description', baseDescription)
+
+  // Add all files with the same field name
+  files.forEach(file => {
+    formData.append('file', file)
+  })
+
+  // Send a single request with all files
+  const response = await fetch('/photo-gallary/api/photos', {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.error || 'Failed to create photos')
+  }
+
+  return response.json()
+}
+
 // Update an existing photo
 export async function updatePhoto(id: number, photoData: PhotoInput): Promise<Photo> {
   const formData = new FormData()

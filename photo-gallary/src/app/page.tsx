@@ -13,7 +13,7 @@ import {
     DialogTrigger,
     DialogClose,
 } from '@/components/ui/dialog'
-import { Photo, getPhotos, createPhoto, updatePhoto, deletePhoto } from '@/lib/photoService'
+import { Photo, getPhotos, createPhoto, createMultiplePhotos, updatePhoto, deletePhoto } from '@/lib/photoService'
 
 // Utility function to fix image URLs if needed
 const fixImageUrl = (url: string): string => {
@@ -27,26 +27,42 @@ function PhotoForm({
     onSave,
     onCancel,
     submitLabel = '保存',
+    photos = [],
 }: {
     initial: { title: string; description: string; url: string }
-    onSave: (data: { title: string; description: string; url: string }) => void
+    onSave: (data: { title: string; description: string; url: string }, files?: File[]) => void
     onCancel: () => void
     submitLabel?: string
+    photos?: any[]
 }) {
     const [form, setForm] = useState(initial)
     const [fileName, setFileName] = useState('選択されていません')
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([])
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
     ) => {
         setForm({ ...form, [e.target.name]: e.target.value })
     }
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (file) {
-            const url = URL.createObjectURL(file)
+        const files = e.target.files
+        if (files && files.length > 0) {
+            // Store all selected files
+            const fileArray = Array.from(files)
+            setSelectedFiles(fileArray)
+
+            // For preview, use the first file
+            const firstFile = files[0]
+            const url = URL.createObjectURL(firstFile)
             setForm((prev) => ({ ...prev, url }))
-            setFileName(file.name)
+
+            // Update file name display
+            if (files.length === 1) {
+                setFileName(files[0].name)
+            } else {
+                setFileName(`${files.length}枚の写真が選択されました`)
+            }
         } else {
+            setSelectedFiles([])
             setFileName('選択されていません')
         }
     }
@@ -55,7 +71,7 @@ function PhotoForm({
             className='flex flex-col gap-4'
             onSubmit={(e) => {
                 e.preventDefault()
-                onSave(form)
+                onSave(form, selectedFiles.length > 0 ? selectedFiles : undefined)
             }}
         >
             {form.url && (
@@ -76,6 +92,8 @@ function PhotoForm({
                             onChange={handleFileChange}
                             className='absolute inset-0 w-full h-full opacity-0 cursor-pointer'
                             style={{ left: 0, top: 0 }}
+                            {...(photos.length === 0 ? { webkitdirectory: '', directory: '' } : {})}
+                            multiple
                         />
                     </span>
                     <span className='text-gray-600 text-sm break-all'>
@@ -209,15 +227,32 @@ export default function Home() {
         }
     }
 
-    const handleAddPhoto = async (data: {
-        title: string
-        description: string
-        url: string
-    }) => {
+    const handleAddPhoto = async (
+        data: {
+            title: string
+            description: string
+            url: string
+        },
+        files?: File[]
+    ) => {
         try {
             setIsSubmitting(true)
 
-            // Create a file from the URL if it exists
+            // Handle multiple files upload
+            if (files && files.length > 0) {
+                // Upload multiple files
+                const newPhotos = await createMultiplePhotos(
+                    files,
+                    data.title || '写真',
+                    data.description || ''
+                )
+
+                setPhotos([...newPhotos, ...photos])
+                setIsAddDialogOpen(false)
+                return
+            }
+
+            // Single file upload (original behavior)
             let file: File | undefined
             if (data.url) {
                 const response = await fetch(data.url)
@@ -324,6 +359,7 @@ export default function Home() {
                                                         setIsDialogOpen(false)
                                                     }
                                                     submitLabel={isSubmitting ? '保存中...' : '保存'}
+                                                    photos={photos}
                                                 />
                                             </DialogContent>
                                         </Dialog>
@@ -358,6 +394,7 @@ export default function Home() {
                             onSave={handleAddPhoto}
                             onCancel={() => setIsAddDialogOpen(false)}
                             submitLabel={isSubmitting ? '追加中...' : '追加'}
+                            photos={photos}
                         />
                     </DialogContent>
                 </Dialog>
