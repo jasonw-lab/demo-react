@@ -93,7 +93,8 @@ export const ensureBucketExists = async () => {
 export const uploadFile = async (
   file: Buffer,
   fileName: string,
-  contentType: string
+  contentType: string,
+  folder: string = ""
 ): Promise<string> => {
   try {
     // Try to ensure bucket exists with retry logic
@@ -101,15 +102,18 @@ export const uploadFile = async (
       await ensureBucketExists();
     });
 
+    // Create object key with folder path if provided
+    const objectKey = folder ? `${folder}/${fileName}` : fileName;
+
     // Try to upload file with retry logic
     await retryOperation(async () => {
-      await minioClient.putObject(PHOTOS_BUCKET, fileName, file, {
+      await minioClient.putObject(PHOTOS_BUCKET, objectKey, file, {
         'Content-Type': contentType,
       });
     });
 
     // Return the URL to the uploaded file
-    return `${process.env.MINIO_PUBLIC_URL || `http://localhost:9000`}/${PHOTOS_BUCKET}/${encodeURIComponent(fileName)}`;
+    return `${process.env.MINIO_PUBLIC_URL || `http://localhost:9000`}/${PHOTOS_BUCKET}/${encodeURIComponent(objectKey)}`;
   } catch (error: any) {
     // Provide more detailed error information
     const errorMessage = error.message || 'Unknown error';
@@ -123,11 +127,11 @@ export const uploadFile = async (
 }
 
 // Delete a file from Minio
-export const deleteFile = async (fileName: string): Promise<void> => {
+export const deleteFile = async (filePath: string): Promise<void> => {
   try {
     // Try to delete file with retry logic
     await retryOperation(async () => {
-      await minioClient.removeObject(PHOTOS_BUCKET, fileName);
+      await minioClient.removeObject(PHOTOS_BUCKET, filePath);
     });
   } catch (error: any) {
     // Provide more detailed error information
@@ -138,6 +142,38 @@ export const deleteFile = async (fileName: string): Promise<void> => {
 
     // Rethrow with more context
     throw new Error(`Failed to delete file from storage: [${errorCode}] ${errorMessage}`);
+  }
+}
+
+// List all folders in the bucket
+export const listFolders = async (): Promise<string[]> => {
+  try {
+    const folderSet = new Set<string>();
+
+    // List all objects in the bucket
+    const stream = minioClient.listObjects(PHOTOS_BUCKET, '', true);
+
+    // Process each object
+    for await (const item of stream) {
+      if (item.name) {
+        // Extract folder path from object name
+        const pathParts = item.name.split('/');
+        if (pathParts.length > 1) {
+          // Add the top-level folder to the set
+          folderSet.add(pathParts[0]);
+        }
+      }
+    }
+
+    // Convert set to array and sort
+    return Array.from(folderSet).sort();
+  } catch (error: any) {
+    // Provide more detailed error information
+    const errorMessage = error.message || 'Unknown error';
+    const errorCode = error.code || 'UNKNOWN';
+
+    console.error(`Failed to list folders: [${errorCode}] ${errorMessage}`);
+    throw new Error(`Failed to list folders: [${errorCode}] ${errorMessage}`);
   }
 }
 

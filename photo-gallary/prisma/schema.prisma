@@ -15,6 +15,7 @@ model Photo {
   title       String
   description String   @db.Text
   url         String   // URL to the photo in Minio
+  folder      String   @default("") // Folder path for organizing photos
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

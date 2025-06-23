@@ -7,17 +7,23 @@ export type Photo = {
   url: string
   createdAt: string
   updatedAt: string
+  folder?: string
 }
 
 export type PhotoInput = {
   title: string
   description: string
   file?: File
+  folder?: string
 }
 
-// Fetch all photos
-export async function getPhotos(): Promise<Photo[]> {
-  const response = await fetch('/photo-gallary/api/photos')
+// Fetch all photos or photos in a specific folder
+export async function getPhotos(folder?: string): Promise<Photo[]> {
+  const url = folder 
+    ? `/photo-gallary/api/photos?folder=${encodeURIComponent(folder)}`
+    : '/photo-gallary/api/photos'
+
+  const response = await fetch(url)
 
   if (!response.ok) {
     const error = await response.json()
@@ -25,6 +31,19 @@ export async function getPhotos(): Promise<Photo[]> {
   }
 
   return response.json()
+}
+
+// Fetch all available folders
+export async function getFolders(): Promise<string[]> {
+  const response = await fetch('/photo-gallary/api/photos?listFolders=true')
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.error || 'Failed to fetch folders')
+  }
+
+  const data = await response.json()
+  return data.folders || []
 }
 
 // Fetch a single photo by ID
@@ -44,6 +63,10 @@ export async function createPhoto(photoData: PhotoInput): Promise<Photo> {
   const formData = new FormData()
   formData.append('title', photoData.title)
   formData.append('description', photoData.description)
+
+  if (photoData.folder) {
+    formData.append('folder', photoData.folder)
+  }
 
   if (photoData.file) {
     formData.append('file', photoData.file)
@@ -66,7 +89,8 @@ export async function createPhoto(photoData: PhotoInput): Promise<Photo> {
 export async function createMultiplePhotos(
   files: File[], 
   baseTitle: string, 
-  baseDescription: string
+  baseDescription: string,
+  folder: string = ""
 ): Promise<Photo[]> {
   // Create a single FormData object for all files
   const formData = new FormData()
@@ -77,6 +101,11 @@ export async function createMultiplePhotos(
   }
 
   formData.append('description', baseDescription)
+
+  // Add folder information if provided
+  if (folder) {
+    formData.append('folder', folder)
+  }
 
   // Add all files with the same field name
   files.forEach(file => {

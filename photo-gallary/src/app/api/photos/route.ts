@@ -1,23 +1,72 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 
-// GET /api/photos - Get all photos
+// GET /api/photos - Get all photos or photos by folder
 export async function GET(request: NextRequest) {
   try {
-    // Get all photos
-    const photos = await prisma.photo.findMany({
-      orderBy: {
-        createdAt: 'desc',
-      },
-    })
+    const { searchParams } = new URL(request.url);
+    const folder = searchParams.get('folder');
+    const listFoldersOnly = searchParams.get('listFolders') === 'true';
 
-    return NextResponse.json(photos)
+    // If listFolders is true, return only the list of folders
+    if (listFoldersOnly) {
+      // Import here to avoid issues with server components
+      const { listFolders } = await import('@/lib/minio');
+
+      try {
+        const folders = await listFolders();
+        return NextResponse.json({ folders });
+      } catch (error) {
+        console.error('Error listing folders:', error);
+        return NextResponse.json(
+          { error: 'フォルダの取得に失敗しました' },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Get photos, filtered by folder if specified
+    try {
+      // Try to use the folder field in the query
+      const photos = await prisma.photo.findMany({
+        where: folder ? {
+          folder: folder
+        } : undefined,
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+      return NextResponse.json(photos);
+    } catch (queryError) {
+      // If the folder field is not recognized, fetch all photos and filter in memory
+      console.log('Falling back to in-memory filtering due to Prisma error:', queryError instanceof Error ? queryError.message : String(queryError));
+
+      const allPhotos = await prisma.photo.findMany({
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      // Filter photos by folder if specified
+      const filteredPhotos = folder 
+        ? allPhotos.filter(photo => photo.folder === folder)
+        : allPhotos;
+
+      return NextResponse.json(filteredPhotos);
+    }
   } catch (error) {
-    console.error('Error fetching photos:', error)
+    console.error('Error fetching photos:', error);
+    // Include more detailed error information in the response
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : '';
     return NextResponse.json(
-      { error: '写真の取得に失敗しました' },
+      { 
+        error: '写真の取得に失敗しました',
+        details: errorMessage,
+        stack: errorStack
+      },
       { status: 500 }
-    )
+    );
   }
 }
 
@@ -29,6 +78,7 @@ export async function POST(request: NextRequest) {
     // Get form fields
     const title = formData.get('title') as string
     const description = formData.get('description') as string || ''
+    const folder = formData.get('folder') as string || ''
 
     // Check if we have files
     const files: File[] = []
@@ -65,16 +115,16 @@ export async function POST(request: NextRequest) {
       const arrayBuffer = await file.arrayBuffer()
       const buffer = Buffer.from(arrayBuffer)
 
-      // Upload to Minio
+      // Upload to Minio with folder information
       let fileUrl: string;
       try {
-        fileUrl = await uploadFile(buffer, fileName, file.type)
-      } catch (uploadError: any) {
+        fileUrl = await uploadFile(buffer, fileName, file.type, folder)
+      } catch (uploadError: unknown) {
         console.error('Error uploading file to Minio:', uploadError)
 
         // Provide more detailed error information to the client
-        const errorMessage = uploadError.message || 'Unknown error';
-        const errorCode = uploadError.code || 'UNKNOWN';
+        const errorMessage = uploadError instanceof Error ? uploadError.message : 'Unknown error';
+        const errorCode = typeof uploadError === 'object' && uploadError && 'code' in uploadError && typeof (uploadError as { code?: unknown }).code === 'string' ? (uploadError as { code: string }).code : 'UNKNOWN';
 
         return NextResponse.json(
           { 
@@ -86,12 +136,13 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Save to database
+      // Save to database with folder information
       const photo = await prisma.photo.create({
         data: {
           title: photoTitle,
           description,
           url: fileUrl,
+          folder,
         },
       })
 

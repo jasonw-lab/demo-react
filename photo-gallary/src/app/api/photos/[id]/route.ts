@@ -4,12 +4,13 @@ import prisma from '@/lib/prisma'
 // GET /api/photos/[id] - Get a specific photo
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const id = parseInt(params.id)
+    const { id } = await params
+    const idNum = parseInt(id)
 
-    if (isNaN(id)) {
+    if (isNaN(idNum)) {
       return NextResponse.json(
         { error: '不正な写真IDです' },
         { status: 400 }
@@ -17,7 +18,7 @@ export async function GET(
     }
 
     const photo = await prisma.photo.findUnique({
-      where: { id },
+      where: { id: idNum },
     })
 
     if (!photo) {
@@ -40,12 +41,13 @@ export async function GET(
 // PUT /api/photos/[id] - Update a photo
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const id = parseInt(params.id)
+    const { id } = await params
+    const idNum = parseInt(id)
 
-    if (isNaN(id)) {
+    if (isNaN(idNum)) {
       return NextResponse.json(
         { error: '不正な写真IDです' },
         { status: 400 }
@@ -55,9 +57,10 @@ export async function PUT(
     const formData = await request.formData()
     const title = formData.get('title') as string
     const description = formData.get('description') as string
+    const folder = formData.get('folder') as string
     const file = formData.get('file') as File | null
 
-    if (!title && !description && !file) {
+    if (!title && !description && !folder && !file) {
       return NextResponse.json(
         { error: '更新するフィールドがありません' },
         { status: 400 }
@@ -66,7 +69,7 @@ export async function PUT(
 
     // Check if photo exists
     const existingPhoto = await prisma.photo.findUnique({
-      where: { id },
+      where: { id: idNum },
     })
 
     if (!existingPhoto) {
@@ -83,8 +86,10 @@ export async function PUT(
       // Import here to avoid issues with server components
       const { uploadFile, deleteFile } = await import('@/lib/minio')
 
-      // Extract the filename from the existing URL
-      const oldFileName = existingPhoto.url.split('/').pop()
+      // Extract the file path from the existing URL
+      const urlParts = existingPhoto.url.split('/');
+      const bucketIndex = urlParts.findIndex(part => part === process.env.MINIO_BUCKET || part === 'photos');
+      const oldFilePath = bucketIndex >= 0 ? urlParts.slice(bucketIndex + 1).join('/') : urlParts[urlParts.length - 1];
 
       // Generate a new unique filename
       const fileExt = file.name.split('.').pop()
@@ -94,15 +99,15 @@ export async function PUT(
       const arrayBuffer = await file.arrayBuffer()
       const buffer = Buffer.from(arrayBuffer)
 
-      // Upload new file
+      // Upload new file with folder information
       try {
-        url = await uploadFile(buffer, newFileName, file.type)
-      } catch (uploadError: any) {
+        url = await uploadFile(buffer, newFileName, file.type, folder || existingPhoto.folder)
+      } catch (uploadError: unknown) {
         console.error('Error uploading new file to Minio:', uploadError)
 
         // Provide more detailed error information to the client
-        const errorMessage = uploadError.message || 'Unknown error';
-        const errorCode = uploadError.code || 'UNKNOWN';
+        const errorMessage = uploadError instanceof Error ? uploadError.message : 'Unknown error';
+        const errorCode = getErrorCode(uploadError);
 
         return NextResponse.json(
           { 
@@ -115,13 +120,13 @@ export async function PUT(
       }
 
       // Delete old file if it exists
-      if (oldFileName) {
+      if (oldFilePath) {
         try {
-          await deleteFile(oldFileName)
-        } catch (error: any) {
+          await deleteFile(oldFilePath)
+        } catch (error: unknown) {
           // Log detailed error information but continue with the update
-          const errorMessage = error.message || 'Unknown error';
-          const errorCode = error.code || 'UNKNOWN';
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          const errorCode = getErrorCode(error);
           console.error(`Error deleting old file: [${errorCode}] ${errorMessage}`, error)
           // Continue even if delete fails
         }
@@ -130,10 +135,11 @@ export async function PUT(
 
     // Update photo in database
     const updatedPhoto = await prisma.photo.update({
-      where: { id },
+      where: { id: idNum },
       data: {
         title: title || existingPhoto.title,
         description: description || existingPhoto.description,
+        folder: folder !== undefined ? folder : existingPhoto.folder,
         url,
       },
     })
@@ -151,12 +157,13 @@ export async function PUT(
 // DELETE /api/photos/[id] - Delete a photo
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const id = parseInt(params.id)
+    const { id } = await params
+    const idNum = parseInt(id)
 
-    if (isNaN(id)) {
+    if (isNaN(idNum)) {
       return NextResponse.json(
         { error: '不正な写真IDです' },
         { status: 400 }
@@ -165,7 +172,7 @@ export async function DELETE(
 
     // Get the photo to delete
     const photo = await prisma.photo.findUnique({
-      where: { id },
+      where: { id: idNum },
     })
 
     if (!photo) {
@@ -177,15 +184,21 @@ export async function DELETE(
 
     // Delete the file from Minio
     const { deleteFile } = await import('@/lib/minio')
-    const fileName = photo.url.split('/').pop()
 
-    if (fileName) {
+    // Extract the file path from the URL
+    // The URL format is: ${MINIO_PUBLIC_URL}/${PHOTOS_BUCKET}/${filePath}
+    // We need to extract the filePath part which may include folder/filename
+    const urlParts = photo.url.split('/');
+    const bucketIndex = urlParts.findIndex(part => part === process.env.MINIO_BUCKET || part === 'photos');
+    const filePath = bucketIndex >= 0 ? urlParts.slice(bucketIndex + 1).join('/') : urlParts[urlParts.length - 1];
+
+    if (filePath) {
       try {
-        await deleteFile(fileName)
-      } catch (error: any) {
+        await deleteFile(filePath)
+      } catch (error: unknown) {
         // Log detailed error information but continue with the database deletion
-        const errorMessage = error.message || 'Unknown error';
-        const errorCode = error.code || 'UNKNOWN';
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorCode = getErrorCode(error);
         console.error(`Error deleting file from Minio: [${errorCode}] ${errorMessage}`, error)
         // Continue even if Minio delete fails
       }
@@ -193,7 +206,7 @@ export async function DELETE(
 
     // Delete from database
     await prisma.photo.delete({
-      where: { id },
+      where: { id: idNum },
     })
 
     return NextResponse.json({ success: true })
@@ -204,4 +217,12 @@ export async function DELETE(
       { status: 500 }
     )
   }
+}
+
+// Utility type guard for error objects
+function getErrorCode(err: unknown): string {
+  if (typeof err === 'object' && err && 'code' in err && typeof (err as { code?: unknown }).code === 'string') {
+    return (err as { code: string }).code
+  }
+  return 'UNKNOWN'
 }

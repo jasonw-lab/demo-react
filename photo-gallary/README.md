@@ -1,62 +1,62 @@
-# Photo Gallery Application
+# フォトギャラリーアプリケーション
 
-A modern photo gallery application built with Next.js that allows users to upload, view, edit, and delete photos. The application uses:
+Next.jsで構築された現代的なフォトギャラリーアプリケーションで、ユーザーは写真のアップロード、閲覧、編集、削除ができます。このアプリケーションは以下を使用しています：
 
-- **Frontend & Backend**: Next.js
-- **Database**: MySQL with Prisma ORM
-- **Storage**: Minio for photo storage
-- **UI**: Tailwind CSS with shadcn/ui components
+- **フロントエンド＆バックエンド**: Next.js
+- **データベース**: MySQL（Prisma ORMを使用）
+- **ストレージ**: 写真保存用のMinio
+- **UI**: Tailwind CSSとshadcn/uiコンポーネント
 
-## Features
+## 機能
 
-- View all photos in a responsive grid layout
-- Upload new photos with title and description
-- Edit existing photos (title, description, and image)
-- Delete photos
-- Responsive design that works on mobile and desktop
+- レスポンシブなグリッドレイアウトですべての写真を表示
+- タイトルと説明付きで新しい写真をアップロード
+- 既存の写真を編集（タイトル、説明、画像）
+- 写真の削除
+- モバイルとデスクトップで動作するレスポンシブデザイン
 
-## Prerequisites
+## 前提条件
 
-Before running this application, you need to have the following installed:
+このアプリケーションを実行する前に、以下のインストールが必要です：
 
-1. Node.js (v18 or later)
-2. MySQL server
-3. Minio server (or any S3-compatible storage)
+1. Node.js（v18以降）
+2. MySQLサーバー
+3. Minioサーバー（または任意のS3互換ストレージ）
 
-## Setup
+## セットアップ
 
-### 1. Install dependencies
+### 1. 依存関係のインストール
 
 ```bash
 npm install
-# or
+# または
 yarn install
-# or
+# または
 pnpm install
 ```
 
-### 2. Set up MySQL
+### 2. MySQLのセットアップ
 
-Create a new MySQL database:
+新しいMySQLデータベースを作成します：
 
 ```sql
 CREATE DATABASE photo_gallery;
 ```
 
-### 3. Set up Minio
+### 3. Minioのセットアップ
 
-Install and run Minio following the [official documentation](https://min.io/docs/minio/container/index.html).
+[公式ドキュメント](https://min.io/docs/minio/container/index.html)に従ってMinioをインストールして実行します。
 
-The default credentials are:
-- Access Key: minioadmin
-- Secret Key: minioadmin
+デフォルトの認証情報は以下の通りです：
+- アクセスキー: minioadmin
+- シークレットキー: minioadmin
 
-### 4. Configure environment variables
+### 4. 環境変数の設定
 
-Create a `.env.local` file in the root directory with the following variables:
+ルートディレクトリに`.env.local`ファイルを作成し、以下の変数を設定します：
 
 ```
-# Database
+# データベース
 DATABASE_URL="mysql://username:password@localhost:3306/photo_gallery"
 
 # Minio
@@ -69,35 +69,35 @@ MINIO_BUCKET="photos"
 MINIO_PUBLIC_URL="http://localhost:9000"
 ```
 
-Replace `username` and `password` with your MySQL credentials.
+`username`と`password`をあなたのMySQL認証情報に置き換えてください。
 
-### 5. Initialize the database
+### 5. データベースの初期化
 
-Run the Prisma migration to create the database schema:
+Prismaマイグレーションを実行してデータベーススキーマを作成します：
 
 ```bash
 npx prisma migrate dev --name init
 ```
 
-## Getting Started
+## 開始方法
 
-Run the development server:
+開発サーバーを実行します：
 
 ```bash
 npm run dev
-# or
+# または
 yarn dev
-# or
+# または
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the application.
+ブラウザで[http://localhost:3000](http://localhost:3000)を開いてアプリケーションを確認します。
 
-## Docker Setup (Alternative)
+## Dockerセットアップ（代替方法）
 
-You can also run the entire application stack (Next.js, MySQL, and Minio) using Docker Compose:
+Docker Composeを使用して、アプリケーションスタック全体（Next.js、MySQL、Minio）を実行することもできます：
 
-1. Create a `docker-compose.yml` file in the root directory:
+1. ルートディレクトリに`docker-compose.yml`ファイルを作成します：
 
 ```yaml
 version: '3'
@@ -147,7 +147,7 @@ volumes:
   minio-data:
 ```
 
-2. Create a `Dockerfile` in the root directory:
+2. ルートディレクトリに`Dockerfile`を作成します：
 
 ```Dockerfile
 FROM node:18-alpine
@@ -165,93 +165,93 @@ RUN npm run build
 CMD ["npm", "start"]
 ```
 
-3. Run the application stack:
+3. アプリケーションスタックを実行します：
 
 ```bash
 docker-compose up -d
 ```
 
-## Project Structure
+## プロジェクト構造
 
-- `/src/app` - Next.js app router pages and API routes
-- `/src/components` - React components
-- `/src/lib` - Utility functions and services
-  - `prisma.ts` - Prisma client setup
-  - `minio.ts` - Minio client setup
-  - `photoService.ts` - Frontend service for interacting with the API
-- `/prisma` - Prisma schema and migrations
+- `/src/app` - Next.jsのアプリルーターページとAPIルート
+- `/src/components` - Reactコンポーネント
+- `/src/lib` - ユーティリティ関数とサービス
+  - `prisma.ts` - Prismaクライアントのセットアップ
+  - `minio.ts` - Minioクライアントのセットアップ
+  - `photoService.ts` - APIと対話するためのフロントエンドサービス
+- `/prisma` - Prismaスキーマとマイグレーション
 
-## API Routes
+## APIルート
 
-- `GET /api/photos` - Get all photos
-- `POST /api/photos` - Create a new photo
-- `GET /api/photos/[id]` - Get a specific photo
-- `PUT /api/photos/[id]` - Update a photo
-- `DELETE /api/photos/[id]` - Delete a photo
+- `GET /api/photos` - すべての写真を取得
+- `POST /api/photos` - 新しい写真を作成
+- `GET /api/photos/[id]` - 特定の写真を取得
+- `PUT /api/photos/[id]` - 写真を更新
+- `DELETE /api/photos/[id]` - 写真を削除
 
-## Production Configuration
+## 本番環境の設定
 
-### Current Settings
+### 現在の設定
 
-The application is configured for deployment to the production environment at:
+アプリケーションは以下の本番環境へのデプロイ用に設定されています：
 ```
 http://160.251.178.119/photo-gallary/
 ```
 
-The `next.config.ts` file includes the following settings:
+`next.config.ts`ファイルには以下の設定が含まれています：
 ```javascript
 output: "export",
 basePath: '/photo-gallary',
 ```
 
-These settings have the following effects:
-- `output: "export"` generates a completely static site without server-side functionality
-- `basePath: '/photo-gallary'` sets the base path for all routes to '/photo-gallary'
+これらの設定には以下の効果があります：
+- `output: "export"`はサーバーサイド機能のない完全に静的なサイトを生成します
+- `basePath: '/photo-gallary'`はすべてのルートのベースパスを'/photo-gallary'に設定します
 
-### Important Note About API Routes
+### APIルートに関する重要な注意
 
-**The current configuration disables all API routes.**
+**現在の設定ではすべてのAPIルートが無効になります。**
 
-When using `output: "export"`, Next.js generates a completely static site without any server-side functionality. This means that all API routes (including those listed above) will not work in the production environment.
+`output: "export"`を使用すると、Next.jsはサーバーサイド機能のない完全に静的なサイトを生成します。これは、本番環境では上記のすべてのAPIルート（上記のリストを含む）が機能しないことを意味します。
 
-For detailed information about this limitation and recommended solutions, please refer to the [API Solution](./API_SOLUTION.md) document.
+この制限に関する詳細情報と推奨される解決策については、[API Solution](./API_SOLUTION.md)ドキュメントを参照してください。
 
-### Testing Production Configuration
+### 本番環境設定のテスト
 
-To test the application with the production configuration:
+本番環境の設定でアプリケーションをテストするには：
 
-1. Build the application:
+1. アプリケーションをビルドします：
    ```
    npm run build
    ```
 
-2. Start the server:
+2. サーバーを起動します：
    ```
    npm run start
    ```
 
-3. Access the application at:
+3. 以下のURLでアプリケーションにアクセスします：
    ```
    http://localhost:3001/photo-gallary/
    ```
 
-4. To demonstrate the API limitation, run:
+4. API制限をデモンストレーションするには、以下を実行します：
    ```
    node test-static-api.js
    ```
-   This script will attempt to access the API endpoint and is expected to fail, demonstrating the limitation of static export.
+   このスクリプトはAPIエンドポイントへのアクセスを試み、静的エクスポートの制限を示すために失敗することが予想されます。
 
-### Deployment
+### デプロイメント
 
-To deploy this application to the production environment:
+このアプリケーションを本番環境にデプロイするには：
 
-1. Build the application:
+1. アプリケーションをビルドします：
    ```
    npm run build
    ```
 
-2. The output will be in the `out` directory, which can be deployed to your web server.
+2. 出力は`out`ディレクトリに格納され、Webサーバーにデプロイできます。
 
-3. Configure your web server to serve the static files from the `out` directory at the path `/photo-gallary/`.
+3. Webサーバーを設定して、`out`ディレクトリから`/photo-gallary/`パスで静的ファイルを提供するようにします。
 
-4. For API functionality, implement one of the solutions described in the [API Solution](./API_SOLUTION.md) document.
+4. API機能については、[API Solution](./API_SOLUTION.md)ドキュメントに記載されている解決策のいずれかを実装してください。

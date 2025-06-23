@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `Photo` ADD COLUMN `folder` VARCHAR(191) NOT NULL DEFAULT '';

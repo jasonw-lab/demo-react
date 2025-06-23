@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Header } from '@/components/Header'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -13,13 +13,23 @@ import {
     DialogTrigger,
     DialogClose,
 } from '@/components/ui/dialog'
-import { Photo, getPhotos, createPhoto, createMultiplePhotos, updatePhoto, deletePhoto } from '@/lib/photoService'
+import {
+    Photo,
+    getPhotos,
+    createPhoto,
+    createMultiplePhotos,
+    updatePhoto,
+    deletePhoto,
+    getFolders,
+} from '@/lib/photoService'
 
-// Utility function to fix image URLs if needed
-const fixImageUrl = (url: string): string => {
-    // Simply return the URL as is, since MinIO is running on port 9000
-    // if (!url) return '';
-    return url;
+// MinIOのベースURL（必要に応じて.envから取得してもOK）
+const MINIO_BASE_URL = 'http://localhost:9000/photos'
+function getPhotoUrl(fileName: string, folder?: string) {
+    if (!fileName) return ''
+    if (fileName.startsWith('http')) return fileName
+    const folderPath = folder ? `/${folder}` : ''
+    return `${MINIO_BASE_URL}${folderPath}/${fileName}`
 }
 
 function PhotoForm({
@@ -28,21 +38,36 @@ function PhotoForm({
     onCancel,
     submitLabel = '保存',
     photos = [],
+    currentFolder = '',
+    isEditMode = false,
 }: {
     initial: { title: string; description: string; url: string }
-    onSave: (data: { title: string; description: string; url: string }, files?: File[]) => void
+    onSave: (
+        data: {
+            title: string
+            description: string
+            url: string
+            folder: string
+        },
+        files?: File[]
+    ) => void
     onCancel: () => void
     submitLabel?: string
-    photos?: any[]
+    photos?: Photo[]
+    currentFolder?: string
+    isEditMode?: boolean
 }) {
-    const [form, setForm] = useState(initial)
+    const [form, setForm] = useState({ ...initial, folder: currentFolder })
     const [fileName, setFileName] = useState('選択されていません')
     const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+    const [newFolder, setNewFolder] = useState('')
+
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
     ) => {
         setForm({ ...form, [e.target.name]: e.target.value })
     }
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files
         if (files && files.length > 0) {
@@ -66,17 +91,23 @@ function PhotoForm({
             setFileName('選択されていません')
         }
     }
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault()
+        // If in add mode and newFolder is provided, use it as the folder
+        // Otherwise, use empty string (which means "all folders")
+        const folderValue = !isEditMode ? newFolder : form.folder
+        onSave(
+            { ...form, folder: folderValue },
+            selectedFiles.length > 0 ? selectedFiles : undefined
+        )
+    }
+
     return (
-        <form
-            className='flex flex-col gap-4'
-            onSubmit={(e) => {
-                e.preventDefault()
-                onSave(form, selectedFiles.length > 0 ? selectedFiles : undefined)
-            }}
-        >
+        <form className='flex flex-col gap-4' onSubmit={handleSubmit}>
             {form.url && (
                 <img
-                    src={form.url.startsWith('blob:') ? form.url : fixImageUrl(form.url)}
+                    src={getPhotoUrl(form.url, form.folder)}
                     alt='preview'
                     className='w-full max-h-[40vh] object-contain rounded mb-2 mx-auto'
                 />
@@ -92,7 +123,9 @@ function PhotoForm({
                             onChange={handleFileChange}
                             className='absolute inset-0 w-full h-full opacity-0 cursor-pointer'
                             style={{ left: 0, top: 0 }}
-                            {...(photos.length === 0 ? { webkitdirectory: '', directory: '' } : {})}
+                            {...(photos.length === 0
+                                ? { webkitdirectory: '', directory: '' }
+                                : {})}
                             multiple
                         />
                     </span>
@@ -119,6 +152,19 @@ function PhotoForm({
                     className='border rounded px-2 py-1'
                 />
             </label>
+
+            {!isEditMode && (
+                <label className='flex flex-col gap-1'>
+                    <span>フォルダ名</span>
+                    <input
+                        name='newFolder'
+                        value={newFolder}
+                        onChange={(e) => setNewFolder(e.target.value)}
+                        className='border rounded px-2 py-1'
+                        placeholder='フォルダ名'
+                    />
+                </label>
+            )}
             <DialogFooter>
                 <Button type='submit'>{submitLabel}</Button>
                 <DialogClose asChild>
@@ -137,6 +183,10 @@ function PhotoForm({
 
 export default function Home() {
     const [photos, setPhotos] = useState<Photo[]>([])
+    const [folders, setFolders] = useState<string[]>([])
+    const [currentFolder, setCurrentFolder] = useState<string>('')
+    const [showFolderMenu, setShowFolderMenu] = useState(false)
+    const menuRef = useRef<HTMLDivElement>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [editPhoto, setEditPhoto] = useState<Photo | null>(null)
@@ -147,25 +197,62 @@ export default function Home() {
     }>({ title: '', description: '', url: '' })
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+    const [isFolderUploadDialogOpen, setIsFolderUploadDialogOpen] =
+        useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
 
-    // Fetch photos when component mounts
+    // Fetch folders when component mounts
+    useEffect(() => {
+        const fetchFolders = async () => {
+            try {
+                const folderList = await getFolders()
+                setFolders(folderList)
+            } catch (err) {
+                console.error('Failed to fetch folders:', err)
+                // Don't set error here, as we'll still try to fetch photos
+            }
+        }
+
+        fetchFolders()
+    }, [])
+
+    // Fetch photos when component mounts or current folder changes
     useEffect(() => {
         const fetchPhotos = async () => {
             try {
                 setLoading(true)
                 setError(null)
-                const data = await getPhotos()
+                const data = await getPhotos(currentFolder)
                 setPhotos(data)
+                console.info('fetchPhots: ' + data.length)
             } catch (err) {
                 console.error('Failed to fetch photos:', err)
-                setError('写真の読み込みに失敗しました。後でもう一度お試しください。')
+                setError(
+                    '写真の読み込みに失敗しました。後でもう一度お試しください。'
+                )
             } finally {
                 setLoading(false)
             }
         }
 
         fetchPhotos()
+    }, [currentFolder])
+
+    // Handle click outside to close the folder menu
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (
+                menuRef.current &&
+                !menuRef.current.contains(event.target as Node)
+            ) {
+                setShowFolderMenu(false)
+            }
+        }
+
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside)
+        }
     }, [])
 
     const handleEditClick = (photo: Photo) => {
@@ -182,6 +269,7 @@ export default function Home() {
         title: string
         description: string
         url: string
+        folder: string
     }) => {
         if (!editPhoto) return
 
@@ -199,10 +287,19 @@ export default function Home() {
             const updatedPhoto = await updatePhoto(editPhoto.id, {
                 title: data.title,
                 description: data.description,
+                folder: data.folder,
                 file,
             })
 
-            setPhotos(photos.map((p) => (p.id === editPhoto.id ? updatedPhoto : p)))
+            // Refresh folders list if a new folder was created
+            if (data.folder && !folders.includes(data.folder)) {
+                const updatedFolders = await getFolders()
+                setFolders(updatedFolders)
+            }
+
+            setPhotos(
+                photos.map((p) => (p.id === editPhoto.id ? updatedPhoto : p))
+            )
             setIsDialogOpen(false)
         } catch (err) {
             console.error('Failed to update photo:', err)
@@ -232,6 +329,7 @@ export default function Home() {
             title: string
             description: string
             url: string
+            folder: string
         },
         files?: File[]
     ) => {
@@ -244,8 +342,15 @@ export default function Home() {
                 const newPhotos = await createMultiplePhotos(
                     files,
                     data.title || '写真',
-                    data.description || ''
+                    data.description || '',
+                    data.folder
                 )
+
+                // Refresh folders list if a new folder was created
+                if (data.folder && !folders.includes(data.folder)) {
+                    const updatedFolders = await getFolders()
+                    setFolders(updatedFolders)
+                }
 
                 setPhotos([...newPhotos, ...photos])
                 setIsAddDialogOpen(false)
@@ -263,8 +368,15 @@ export default function Home() {
             const newPhoto = await createPhoto({
                 title: data.title,
                 description: data.description,
+                folder: data.folder,
                 file,
             })
+
+            // Refresh folders list if a new folder was created
+            if (data.folder && !folders.includes(data.folder)) {
+                const updatedFolders = await getFolders()
+                setFolders(updatedFolders)
+            }
 
             setPhotos([newPhoto, ...photos])
             setIsAddDialogOpen(false)
@@ -276,9 +388,61 @@ export default function Home() {
         }
     }
 
+    // Handle folder selection
+    const handleFolderSelect = (folder: string) => {
+        setCurrentFolder(folder)
+        setShowFolderMenu(false)
+    }
+
+    // Handle "All Photos" selection
+    const handleAllPhotosSelect = () => {
+        setCurrentFolder('')
+        setShowFolderMenu(false)
+    }
+
     return (
-        <div className='min-h-screen'>
-            <Header onAddPhotoClick={() => setIsAddDialogOpen(true)} />
+        <div className='min-h-screen relative'>
+            <Header
+                onAddPhotoClick={() => setIsAddDialogOpen(true)}
+                onToggleFolderMenu={() => setShowFolderMenu(!showFolderMenu)}
+                onAddFolderClick={() => setIsFolderUploadDialogOpen(true)}
+            />
+
+            {/* Folder slide menu */}
+            <div
+                ref={menuRef}
+                className={`fixed right-0 top-[64px] h-[calc(100%-64px)] bg-white shadow-lg w-64 transform transition-transform duration-300 z-50 ${
+                    showFolderMenu ? 'translate-x-0' : 'translate-x-full'
+                }`}
+            >
+                <div className='p-4'>
+                    <h3 className='text-lg font-semibold mb-4'>フォルダ</h3>
+                    <ul className='space-y-2'>
+                        <li
+                            className={`cursor-pointer p-2 rounded hover:bg-gray-100 ${
+                                currentFolder === '' ? 'bg-blue-100' : ''
+                            }`}
+                            onClick={handleAllPhotosSelect}
+                        >
+                            すべての写真
+                        </li>
+                        {folders.map((folder) => (
+                            <li
+                                key={folder}
+                                className={`cursor-pointer p-2 rounded hover:bg-gray-100 ${
+                                    currentFolder === folder
+                                        ? 'bg-blue-100'
+                                        : ''
+                                }`}
+                                onClick={() => handleFolderSelect(folder)}
+                            >
+                                {folder}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            </div>
+
             <main className='container mx-auto px-4 py-8'>
                 {loading ? (
                     <div className='flex flex-col items-center justify-center py-12'>
@@ -288,7 +452,7 @@ export default function Home() {
                 ) : error ? (
                     <div className='bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative my-6'>
                         <p>{error}</p>
-                        <button 
+                        <button
                             className='underline mt-2'
                             onClick={() => window.location.reload()}
                         >
@@ -311,7 +475,10 @@ export default function Home() {
                             >
                                 <div className='relative flex-1'>
                                     <img
-                                        src={fixImageUrl(photo.url)}
+                                        src={getPhotoUrl(
+                                            photo.url,
+                                            photo.folder
+                                        )}
                                         alt={photo.title}
                                         className='w-full h-full object-cover rounded-t-xl'
                                     />
@@ -330,7 +497,8 @@ export default function Home() {
                                                 editPhoto?.id === photo.id
                                             }
                                             onOpenChange={(open) => {
-                                                if (!isSubmitting) setIsDialogOpen(open)
+                                                if (!isSubmitting)
+                                                    setIsDialogOpen(open)
                                             }}
                                         >
                                             <DialogTrigger asChild>
@@ -358,8 +526,16 @@ export default function Home() {
                                                     onCancel={() =>
                                                         setIsDialogOpen(false)
                                                     }
-                                                    submitLabel={isSubmitting ? '保存中...' : '保存'}
+                                                    submitLabel={
+                                                        isSubmitting
+                                                            ? '保存中...'
+                                                            : '保存'
+                                                    }
                                                     photos={photos}
+                                                    currentFolder={
+                                                        editPhoto?.folder || ''
+                                                    }
+                                                    isEditMode={true}
                                                 />
                                             </DialogContent>
                                         </Dialog>
@@ -367,7 +543,9 @@ export default function Home() {
                                             size='icon'
                                             variant='secondary'
                                             className='shadow bg-white/80 hover:bg-white'
-                                            onClick={() => handleDelete(photo.id)}
+                                            onClick={() =>
+                                                handleDelete(photo.id)
+                                            }
                                             disabled={isSubmitting}
                                         >
                                             <Trash className='w-4 h-4 text-gray-700' />
@@ -395,6 +573,37 @@ export default function Home() {
                             onCancel={() => setIsAddDialogOpen(false)}
                             submitLabel={isSubmitting ? '追加中...' : '追加'}
                             photos={photos}
+                            currentFolder={currentFolder}
+                            isEditMode={false}
+                        />
+                    </DialogContent>
+                </Dialog>
+
+                {/* Folder Upload Dialog */}
+                <Dialog
+                    open={isFolderUploadDialogOpen}
+                    onOpenChange={(open) => {
+                        if (!isSubmitting) setIsFolderUploadDialogOpen(open)
+                    }}
+                >
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>
+                                写真フォルダをアップロード
+                            </DialogTitle>
+                        </DialogHeader>
+                        <PhotoForm
+                            initial={{ title: '', description: '', url: '' }}
+                            onSave={handleAddPhoto}
+                            onCancel={() => setIsFolderUploadDialogOpen(false)}
+                            submitLabel={
+                                isSubmitting
+                                    ? 'アップロード中...'
+                                    : 'アップロード'
+                            }
+                            photos={[]} // Empty array to enable directory selection
+                            currentFolder={currentFolder}
+                            isEditMode={false}
                         />
                     </DialogContent>
                 </Dialog>

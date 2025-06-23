@@ -1,10 +1,14 @@
 // Simple script to test the API endpoint
 const http = require('http');
 
+// Test with folder parameter
+const folder = 'images';
+const encodedFolder = encodeURIComponent(folder);
+
 const options = {
   hostname: 'localhost',
   port: 3001,
-  path: '/photo-gallary/api/photos',
+  path: `/photo-gallary/api/photos?folder=${encodedFolder}`,
   method: 'GET'
 };
 
@@ -34,5 +38,5 @@ req.on('error', (e) => {
 
 req.end();
 
-console.log('Making request to http://localhost:3001/photo-gallary/api/photos');
+console.log(`Making request to http://localhost:3001/photo-gallary/api/photos?folder=${encodedFolder}`);
 console.log('Run this script after starting the server with "npm run dev"');
