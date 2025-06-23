@@ -22,6 +22,7 @@ import {
     deletePhoto,
     getFolders,
 } from '@/lib/photoService'
+import Image from 'next/image'
 
 // MinIOのベースURL（必要に応じて.envから取得してもOK）
 const MINIO_BASE_URL = 'http://localhost:9000/photos'
@@ -106,9 +107,11 @@ function PhotoForm({
     return (
         <form className='flex flex-col gap-4' onSubmit={handleSubmit}>
             {form.url && (
-                <img
+                <Image
                     src={getPhotoUrl(form.url, form.folder)}
                     alt='preview'
+                    width={400}
+                    height={300}
                     className='w-full max-h-[40vh] object-contain rounded mb-2 mx-auto'
                 />
             )}
@@ -474,12 +477,14 @@ export default function Home() {
                                 className='rounded-xl shadow-md p-0 group relative overflow-hidden transition-transform duration-200 ease-out hover:scale-105 hover:shadow-lg h-80 flex flex-col'
                             >
                                 <div className='relative flex-1'>
-                                    <img
+                                    <Image
                                         src={getPhotoUrl(
                                             photo.url,
                                             photo.folder
                                         )}
                                         alt={photo.title}
+                                        width={400}
+                                        height={300}
                                         className='w-full h-full object-cover rounded-t-xl'
                                     />
                                     <div className='absolute bottom-0 left-0 w-full px-4 pb-3 pt-8 bg-gradient-to-t from-black/80 via-black/40 to-transparent'>

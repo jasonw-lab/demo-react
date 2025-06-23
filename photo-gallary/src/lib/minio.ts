@@ -8,7 +8,6 @@ const createMinioClient = () => {
     useSSL: process.env.MINIO_USE_SSL === 'true',
     accessKey: process.env.MINIO_ACCESS_KEY || 'admin',
     secretKey: process.env.MINIO_SECRET_KEY || 'admin',
-    connectTimeout: 5000, // 5 seconds timeout
     pathStyle: true, // Use path style for better compatibility
   })
 }
@@ -24,7 +23,7 @@ const retryOperation = async <T>(
   maxRetries: number = 3,
   initialDelay: number = 500
 ): Promise<T> => {
-  let lastError: any;
+  let lastError: unknown;
   let delay = initialDelay;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -77,10 +76,10 @@ export const ensureBucketExists = async () => {
       };
       await minioClient.setBucketPolicy(PHOTOS_BUCKET, JSON.stringify(policy));
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Provide more detailed error information
-    const errorMessage = error.message || 'Unknown error';
-    const errorCode = error.code || 'UNKNOWN';
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorCode = typeof error === 'object' && error && 'code' in error && typeof (error as { code?: unknown }).code === 'string' ? (error as { code: string }).code : 'UNKNOWN';
 
     console.error(`Failed to ensure bucket exists: [${errorCode}] ${errorMessage}`);
 
@@ -107,17 +106,15 @@ export const uploadFile = async (
 
     // Try to upload file with retry logic
     await retryOperation(async () => {
-      await minioClient.putObject(PHOTOS_BUCKET, objectKey, file, {
-        'Content-Type': contentType,
-      });
+      await minioClient.putObject(PHOTOS_BUCKET, objectKey, file, file.length, { 'Content-Type': contentType });
     });
 
     // Return the URL to the uploaded file
     return `${process.env.MINIO_PUBLIC_URL || `http://localhost:9000`}/${PHOTOS_BUCKET}/${encodeURIComponent(objectKey)}`;
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Provide more detailed error information
-    const errorMessage = error.message || 'Unknown error';
-    const errorCode = error.code || 'UNKNOWN';
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorCode = typeof error === 'object' && error && 'code' in error && typeof (error as { code?: unknown }).code === 'string' ? (error as { code: string }).code : 'UNKNOWN';
 
     console.error(`Minio upload failed after retries: [${errorCode}] ${errorMessage}`);
 
@@ -133,10 +130,10 @@ export const deleteFile = async (filePath: string): Promise<void> => {
     await retryOperation(async () => {
       await minioClient.removeObject(PHOTOS_BUCKET, filePath);
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Provide more detailed error information
-    const errorMessage = error.message || 'Unknown error';
-    const errorCode = error.code || 'UNKNOWN';
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorCode = typeof error === 'object' && error && 'code' in error && typeof (error as { code?: unknown }).code === 'string' ? (error as { code: string }).code : 'UNKNOWN';
 
     console.error(`Minio delete failed after retries: [${errorCode}] ${errorMessage}`);
 
@@ -167,10 +164,10 @@ export const listFolders = async (): Promise<string[]> => {
 
     // Convert set to array and sort
     return Array.from(folderSet).sort();
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Provide more detailed error information
-    const errorMessage = error.message || 'Unknown error';
-    const errorCode = error.code || 'UNKNOWN';
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorCode = typeof error === 'object' && error && 'code' in error && typeof (error as { code?: unknown }).code === 'string' ? (error as { code: string }).code : 'UNKNOWN';
 
     console.error(`Failed to list folders: [${errorCode}] ${errorMessage}`);
     throw new Error(`Failed to list folders: [${errorCode}] ${errorMessage}`);
