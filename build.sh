@@ -33,6 +33,7 @@ build_photo_gallary() {
     pnpm install
 #    npm run build
 # Use pnpm to build the project
+    rm -rf .next
     npx next build
     PHOTO_GALLARY_BUILT=true
   else
