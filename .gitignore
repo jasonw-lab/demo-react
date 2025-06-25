@@ -77,4 +77,6 @@ node_modules/
 
 dist/*/
 
-
+photo-gallary/out
+/photo-gallary/.env.production
+.next

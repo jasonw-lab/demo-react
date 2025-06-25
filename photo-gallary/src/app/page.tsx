@@ -24,8 +24,9 @@ import {
 } from '@/lib/photoService'
 import Image from 'next/image'
 
-// MinIOのベースURL（必要に応じて.envから取得してもOK）
-const MINIO_BASE_URL = 'http://localhost:9000/photos'
+// MinIOのベースURL（環境変数から取得）
+const MINIO_BASE_URL = `${process.env.MINIO_PUBLIC_URL || 'http://localhost:9000'}/photos`
+// const MINIO_BASE_URL = 'http://localhost:64131/photos'
 function getPhotoUrl(fileName: string, folder?: string) {
     if (!fileName) return ''
     if (fileName.startsWith('http')) return fileName
@@ -208,7 +209,9 @@ export default function Home() {
     useEffect(() => {
         const fetchFolders = async () => {
             try {
+                console.log('Fetching folders...')
                 const folderList = await getFolders()
+                console.log('Folders fetched:', folderList)
                 setFolders(folderList)
             } catch (err) {
                 console.error('Failed to fetch folders:', err)
@@ -414,35 +417,66 @@ export default function Home() {
             {/* Folder slide menu */}
             <div
                 ref={menuRef}
-                className={`fixed right-0 top-[64px] h-[calc(100%-64px)] bg-white shadow-lg w-64 transform transition-transform duration-300 z-50 ${
+                className={`fixed right-0 top-[64px] h-[calc(100%-64px)] bg-white shadow-xl w-80 transform transition-transform duration-300 z-50 border-l border-gray-200 ${
                     showFolderMenu ? 'translate-x-0' : 'translate-x-full'
                 }`}
             >
-                <div className='p-4'>
-                    <h3 className='text-lg font-semibold mb-4'>フォルダ</h3>
-                    <ul className='space-y-2'>
-                        <li
-                            className={`cursor-pointer p-2 rounded hover:bg-gray-100 ${
-                                currentFolder === '' ? 'bg-blue-100' : ''
+                <div className='p-6'>
+                    <div className='flex items-center justify-between mb-6'>
+                        <h3 className='text-xl font-bold text-gray-800'>
+                            フォルダ一覧
+                        </h3>
+                        <button
+                            onClick={() => setShowFolderMenu(false)}
+                            className='text-gray-400 hover:text-gray-600 transition-colors'
+                        >
+                            ✕
+                        </button>
+                    </div>
+
+                    <div className='space-y-2'>
+                        <div
+                            className={`cursor-pointer p-3 rounded-lg transition-all duration-200 ${
+                                currentFolder === ''
+                                    ? 'bg-blue-500 text-white shadow-md'
+                                    : 'bg-gray-50 hover:bg-gray-100 text-gray-700'
                             }`}
                             onClick={handleAllPhotosSelect}
                         >
-                            すべての写真
-                        </li>
-                        {folders.map((folder) => (
-                            <li
-                                key={folder}
-                                className={`cursor-pointer p-2 rounded hover:bg-gray-100 ${
-                                    currentFolder === folder
-                                        ? 'bg-blue-100'
-                                        : ''
-                                }`}
-                                onClick={() => handleFolderSelect(folder)}
-                            >
-                                {folder}
-                            </li>
-                        ))}
-                    </ul>
+                            <div className='flex items-center'>
+                                <span className='text-lg mr-3'>📁</span>
+                                <span className='font-medium'>
+                                    すべての写真
+                                </span>
+                            </div>
+                        </div>
+
+                        {folders.length === 0 ? (
+                            <div className='text-center py-8 text-gray-500'>
+                                <div className='text-4xl mb-2'>📂</div>
+                                <p>フォルダがありません</p>
+                            </div>
+                        ) : (
+                            folders.map((folder) => (
+                                <div
+                                    key={folder}
+                                    className={`cursor-pointer p-3 rounded-lg transition-all duration-200 ${
+                                        currentFolder === folder
+                                            ? 'bg-blue-500 text-white shadow-md'
+                                            : 'bg-gray-50 hover:bg-gray-100 text-gray-700'
+                                    }`}
+                                    onClick={() => handleFolderSelect(folder)}
+                                >
+                                    <div className='flex items-center'>
+                                        <span className='text-lg mr-3'>📁</span>
+                                        <span className='font-medium truncate'>
+                                            {folder}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -480,6 +514,7 @@ export default function Home() {
                                     <Image
                                         src={getPhotoUrl(
                                             photo.url,
+
                                             photo.folder
                                         )}
                                         alt={photo.title}

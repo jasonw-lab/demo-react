@@ -8,6 +8,7 @@ const createMinioClient = () => {
     useSSL: process.env.MINIO_USE_SSL === 'true',
     accessKey: process.env.MINIO_ACCESS_KEY || 'admin',
     secretKey: process.env.MINIO_SECRET_KEY || 'admin',
+    connectTimeout: 5000, // 5 seconds timeout
     pathStyle: true, // Use path style for better compatibility
   })
 }
@@ -145,25 +146,41 @@ export const deleteFile = async (filePath: string): Promise<void> => {
 // List all folders in the bucket
 export const listFolders = async (): Promise<string[]> => {
   try {
-    const folderSet = new Set<string>();
+    console.log('Starting listFolders...');
 
-    // List all objects in the bucket
-    const stream = minioClient.listObjects(PHOTOS_BUCKET, '', true);
+    // Use retryOperation to handle potential connection issues
+    return await retryOperation(async () => {
+      // Ensure bucket exists before listing objects
+      await ensureBucketExists();
 
-    // Process each object
-    for await (const item of stream) {
-      if (item.name) {
+      const folderSet = new Set<string>();
+
+      // List all objects in the bucket
+      const stream = minioClient.listObjects(PHOTOS_BUCKET, '', true);
+      console.log('Stream created for bucket:', PHOTOS_BUCKET);
+
+      // Set up error handling for the stream
+      stream.on('error', (err) => {
+        console.error('Error in listObjects stream:', err);
+        throw err; // This will be caught by retryOperation
+      });
+
+      // Process each object
+      for await (const item of stream) {
         // Extract folder path from object name
         const pathParts = item.name.split('/');
         if (pathParts.length > 1) {
-          // Add the top-level folder to the set
           folderSet.add(pathParts[0]);
         }
       }
-    }
 
-    // Convert set to array and sort
-    return Array.from(folderSet).sort();
+      // Convert set to array and sort
+      const result = Array.from(folderSet).sort();
+      console.log('Final folders list:', result);
+
+      // Even if no folders are found, return an empty array rather than throwing an error
+      return result;
+    });
   } catch (error: unknown) {
     // Provide more detailed error information
     const errorMessage = error instanceof Error ? error.message : String(error);
