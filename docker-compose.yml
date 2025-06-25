@@ -1,0 +1,48 @@
+services:
+  photo-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=mysql://root:123456@host.docker.internal:3306/lab_front
+      - MINIO_ENDPOINT=host.docker.internal
+      - MINIO_PORT=9000
+      - MINIO_USE_SSL=false
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_BUCKET=photos
+      - MINIO_PUBLIC_URL=http://host.docker.internal:9000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+#    depends_on:
+#      - mysql
+#      - minio
+#
+#  mysql:
+#    image: mysql:8
+#    environment:
+#      - MYSQL_ROOT_PASSWORD=password
+#      - MYSQL_DATABASE=photo_gallery
+#    ports:
+#      - "3306:3306"
+#    volumes:
+#      - mysql-data:/var/lib/mysql
+#
+#  minio:
+#    image: minio/minio
+#    ports:
+#      - "9000:9000"
+#      - "9001:9001"
+#    environment:
+#      - MINIO_ROOT_USER=minioadmin
+#      - MINIO_ROOT_PASSWORD=minioadmin
+#    volumes:
+#      - minio-data:/data
+#    command: server /data --console-address ":9001"
+#
+#volumes:
+#  mysql-data:
+#  minio-data:

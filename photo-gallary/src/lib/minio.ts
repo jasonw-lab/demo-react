@@ -8,6 +8,7 @@ const createMinioClient = () => {
     useSSL: process.env.MINIO_USE_SSL === 'true',
     accessKey: process.env.MINIO_ACCESS_KEY || 'admin',
     secretKey: process.env.MINIO_SECRET_KEY || 'admin',
+    connectTimeout: 5000, // 5 seconds timeout
     pathStyle: true, // Use path style for better compatibility
   })
 }
@@ -145,25 +146,32 @@ export const deleteFile = async (filePath: string): Promise<void> => {
 // List all folders in the bucket
 export const listFolders = async (): Promise<string[]> => {
   try {
+    console.log('Starting listFolders...');
     const folderSet = new Set<string>();
 
     // List all objects in the bucket
     const stream = minioClient.listObjects(PHOTOS_BUCKET, '', true);
+    console.log('Stream created for bucket:', PHOTOS_BUCKET);
 
     // Process each object
     for await (const item of stream) {
+      console.log('Processing item:', item.name);
       if (item.name) {
         // Extract folder path from object name
         const pathParts = item.name.split('/');
+        console.log('Path parts:', pathParts);
         if (pathParts.length > 1) {
           // Add the top-level folder to the set
           folderSet.add(pathParts[0]);
+          console.log('Added folder:', pathParts[0]);
         }
       }
     }
 
     // Convert set to array and sort
-    return Array.from(folderSet).sort();
+    const result = Array.from(folderSet).sort();
+    console.log('Final folders list:', result);
+    return result;
   } catch (error: unknown) {
     // Provide more detailed error information
     const errorMessage = error instanceof Error ? error.message : String(error);

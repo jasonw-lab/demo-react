@@ -1,20 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 
+export const dynamic = 'force-static'
+
 // GET /api/photos - Get all photos or photos by folder
 export async function GET(request: NextRequest) {
   try {
+    console.log('=== API GET Request Start ===');
     const { searchParams } = new URL(request.url);
     const folder = searchParams.get('folder');
     const listFoldersOnly = searchParams.get('listFolders') === 'true';
+    
+    console.log('Request URL:', request.url);
+    console.log('Search params:', Object.fromEntries(searchParams.entries()));
+    console.log('API GET request - folder:', folder, 'listFoldersOnly:', listFoldersOnly);
 
     // If listFolders is true, return only the list of folders
     if (listFoldersOnly) {
+      console.log('=== Processing listFolders request ===');
       // Import here to avoid issues with server components
       const { listFolders } = await import('@/lib/minio');
 
       try {
+        console.log('Calling listFolders function...');
         const folders = await listFolders();
+        console.log('Folders returned from listFolders:', folders);
+        console.log('=== listFolders request completed ===');
         return NextResponse.json({ folders });
       } catch (error) {
         console.error('Error listing folders:', error);
@@ -25,6 +36,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    console.log('=== Processing regular photos request ===');
     // Get photos, filtered by folder if specified
     try {
       // Try to use the folder field in the query
@@ -36,6 +48,7 @@ export async function GET(request: NextRequest) {
           createdAt: 'desc',
         },
       });
+      console.log('Photos found:', photos.length);
       return NextResponse.json(photos);
     } catch (queryError) {
       // If the folder field is not recognized, fetch all photos and filter in memory
@@ -49,13 +62,13 @@ export async function GET(request: NextRequest) {
 
       // Filter photos by folder if specified
       const filteredPhotos = folder 
-        ? allPhotos.filter(photo => photo.folder === folder)
+        ? allPhotos.filter((photo: { folder: string | null }) => photo.folder === folder)
         : allPhotos;
 
       return NextResponse.json(filteredPhotos);
     }
   } catch (error) {
-    console.error('Error fetching photos:', error);
+    console.error('=== API Error ===', error);
     // Include more detailed error information in the response
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorStack = error instanceof Error ? error.stack : '';
