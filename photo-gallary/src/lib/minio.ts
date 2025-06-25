@@ -147,31 +147,40 @@ export const deleteFile = async (filePath: string): Promise<void> => {
 export const listFolders = async (): Promise<string[]> => {
   try {
     console.log('Starting listFolders...');
-    const folderSet = new Set<string>();
 
-    // List all objects in the bucket
-    const stream = minioClient.listObjects(PHOTOS_BUCKET, '', true);
-    console.log('Stream created for bucket:', PHOTOS_BUCKET);
+    // Use retryOperation to handle potential connection issues
+    return await retryOperation(async () => {
+      // Ensure bucket exists before listing objects
+      await ensureBucketExists();
 
-    // Process each object
-    for await (const item of stream) {
-      console.log('Processing item:', item.name);
-      if (item.name) {
+      const folderSet = new Set<string>();
+
+      // List all objects in the bucket
+      const stream = minioClient.listObjects(PHOTOS_BUCKET, '', true);
+      console.log('Stream created for bucket:', PHOTOS_BUCKET);
+
+      // Set up error handling for the stream
+      stream.on('error', (err) => {
+        console.error('Error in listObjects stream:', err);
+        throw err; // This will be caught by retryOperation
+      });
+
+      // Process each object
+      for await (const item of stream) {
         // Extract folder path from object name
         const pathParts = item.name.split('/');
-        console.log('Path parts:', pathParts);
         if (pathParts.length > 1) {
-          // Add the top-level folder to the set
           folderSet.add(pathParts[0]);
-          console.log('Added folder:', pathParts[0]);
         }
       }
-    }
 
-    // Convert set to array and sort
-    const result = Array.from(folderSet).sort();
-    console.log('Final folders list:', result);
-    return result;
+      // Convert set to array and sort
+      const result = Array.from(folderSet).sort();
+      console.log('Final folders list:', result);
+
+      // Even if no folders are found, return an empty array rather than throwing an error
+      return result;
+    });
   } catch (error: unknown) {
     // Provide more detailed error information
     const errorMessage = error instanceof Error ? error.message : String(error);

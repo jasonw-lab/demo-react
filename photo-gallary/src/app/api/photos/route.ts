@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 
-export const dynamic = 'force-static'
+export const dynamic = 'force-dynamic'
 
 // GET /api/photos - Get all photos or photos by folder
 export async function GET(request: NextRequest) {
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const folder = searchParams.get('folder');
     const listFoldersOnly = searchParams.get('listFolders') === 'true';
-    
+
     console.log('Request URL:', request.url);
     console.log('Search params:', Object.fromEntries(searchParams.entries()));
     console.log('API GET request - folder:', folder, 'listFoldersOnly:', listFoldersOnly);
