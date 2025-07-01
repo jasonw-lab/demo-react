@@ -1,5 +1,17 @@
 services:
-  photo-api:
+#  # Frontend service (nginx)
+#  photo-frontend:
+#    image: nginx:alpine
+#    ports:
+#      - "80:80"
+#    volumes:
+#      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+#      - /mydata/nginx/html:/usr/share/nginx/html
+#    depends_on:
+#      - photo-api
+
+  # Backend service (API)
+  photo-gallary:
     build:
       context: .
       dockerfile: Dockerfile
@@ -15,6 +27,7 @@ services:
       - MINIO_SECRET_KEY=minioadmin
       - MINIO_BUCKET=photos
       - MINIO_PUBLIC_URL=http://host.docker.internal:9000
+      - NEXT_BASEPATH=/photo-gallary
     extra_hosts:
       - "host.docker.internal:host-gateway"
 #    depends_on:

@@ -3,8 +3,6 @@
 # Exit on error
 set -e
 
-
-
 #source ~/.bashrc
 export VOLTA_HOME="$HOME/.volta"
 export PATH="$VOLTA_HOME/bin:$PATH"
@@ -13,28 +11,84 @@ echo "npm version: $(npm -v)"
 
 # Define paths
 TARGET_DIR="/mydata/nginx/html"
+LOCAL_TARGET_DIR="/opt/homebrew/var/www/photo-gallary"
 CURRENT_DIR=$(pwd)
+BUILD_REQUIRED=1
+DEPLOY_ENV="server"
+
+# Check if build is required (parameter 1)
+if [ -n "$1" ]; then
+  if [ "$1" = "0" ]; then
+    BUILD_REQUIRED=0
+  elif [ "$1" = "1" ]; then
+    BUILD_REQUIRED=1
+  else
+    echo "Error: First parameter must be 0 (no build) or 1 (build)"
+    exit 1
+  fi
+fi
+
+# Check environment mode (parameter 2)
+if [ -n "$2" ]; then
+  if [ "$2" = "local" ]; then
+    DEPLOY_ENV="local"
+  elif [ "$2" = "server" ]; then
+    DEPLOY_ENV="server"
+  else
+    echo "Error: Second parameter must be 'local' or 'server'"
+    exit 1
+  fi
+fi
 
 # Function to display usage information
 show_usage() {
-  echo "Usage: $0 [project1] [project2] ..."
-  echo "Available projects: photo-gallary or any custom project name"
-  echo "If no projects are specified, all standard projects will be built."
-  echo "Example: $0 photo-gallary customproject"
+  echo "Usage: $0 [build_flag] [environment]"
+  echo "Parameters:"
+  echo "  build_flag - 0 (no build) or 1 (build) - Default: 1"
+  echo "  environment - 'local' or 'server' - Default: server"
+  echo "Examples:"
+  echo "  $0 1 local - Build and deploy to local environment"
+  echo "  $0 0 server - Skip build and deploy to server environment"
 }
 
 
 # Function to build photo-gallary project
 build_photo_gallary() {
+  echo "step1 build"
   local project_name="photo-gallary"
   if [ -d "$CURRENT_DIR/$project_name" ]; then
-    echo "Building $project_name project..."
-    cd "$CURRENT_DIR/$project_name"
-    pnpm install
-#    npm run build
-# Use pnpm to build the project
-    rm -rf .next
-    npx next build
+    if [ "$BUILD_REQUIRED" = "1" ]; then
+      echo "Building $project_name project..."
+      cd "$CURRENT_DIR/$project_name"
+      pnpm install
+      # Clean the .next directory before building
+      rm -rf .next
+
+      # For local deployment, create a temporary .env.local file to set API connection to localhost:3001
+      if [ "$DEPLOY_ENV" = "local" ]; then
+        echo "Configuring for local deployment with API at localhost:3001..."
+        echo "NEXT_PUBLIC_API_URL=http://localhost:3001" > .env.local
+        echo "API_URL=http://localhost:3001" >> .env.local
+      fi
+
+      # Use npm run build to ensure proper standalone output generation
+      pnpm run build
+
+      # Remove temporary .env.local file if it was created
+      if [ "$DEPLOY_ENV" = "local" ] && [ -f .env.local ]; then
+        rm .env.local
+      fi
+
+      # Create a directory for static assets (frontend)
+#      mkdir -p out
+#      # Copy static assets to out directory for nginx
+#      cp -r .next/static out/
+#      # Copy public files to out directory
+#      cp -r public/* out/
+    else
+      echo "Skipping build for $project_name as per BUILD_REQUIRED=0..."
+      cd "$CURRENT_DIR/$project_name"
+    fi
     PHOTO_GALLARY_BUILT=true
   else
     echo "Error: $project_name project folder does not exist."
@@ -42,101 +96,70 @@ build_photo_gallary() {
   fi
 }
 
+# Function to copy static files to the appropriate location
+copy_static_files() {
+  echo "step2 copy asset"
+  local project_name="photo-gallary"
+  local source_dir="$CURRENT_DIR/$project_name/.next/static"
+  local target_dir=""
 
-# Function to build custom project
-build_custom_project() {
-  local project_name=$1
-  if [ -d "$CURRENT_DIR/$project_name" ]; then
-    echo "Building $project_name project..."
-    cd "$CURRENT_DIR/$project_name"
-    npm install
-    npm run build
-    # Add project to the list with space separator
-    CUSTOM_PROJECTS_LIST="$CUSTOM_PROJECTS_LIST $project_name"
+  # Determine target directory based on environment mode
+  if [ "$DEPLOY_ENV" = "local" ]; then
+    target_dir="$LOCAL_TARGET_DIR"
   else
-    echo "Error: $project_name project folder does not exist."
-    exit 1
+    target_dir="$TARGET_DIR"
+  fi
+
+  # Check if source directory exists
+  if [ -d "$source_dir" ]; then
+    echo "Copying static files from $source_dir to $target_dir..."
+
+    # Delete destination folder before copying
+    if [ -d "$target_dir" ]; then
+      echo "Removing existing directory: $target_dir"
+      rm -rf "$target_dir"
+    fi
+
+    # Create target directory
+    mkdir -p "$target_dir"
+
+    # Copy static files (contents of the directory)
+    cp -r "$source_dir/"* "$target_dir/"
+
+    echo "Static files copied successfully to $target_dir"
+  else
+    echo "Warning: Source directory $source_dir does not exist. Skipping copy operation."
+    echo "Note: The static directory is typically created during the build process."
+    echo "If you skipped the build (BUILD_REQUIRED=0), make sure the static directory exists."
   fi
 }
-
-# Initialize build flags
-PHOTO_GALLARY_BUILT=false
-BUILD_ALL=false
-# Using a simpler approach instead of associative arrays for better shell compatibility
-CUSTOM_PROJECTS_LIST=""
-
 # Check if help is requested
 if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   show_usage
   exit 0
 fi
 
-# If no arguments provided, build all projects
-if [ $# -eq 0 ]; then
-  BUILD_ALL=true
-  echo "No specific projects specified. Building all projects..."
-fi
+# Initialize build flag
+PHOTO_GALLARY_BUILT=false
 
-# Process command line arguments
-for arg in "$@"; do
-  case "$arg" in
-    photo-gallary)
-      build_photo_gallary
-      ;;
-    *)
-      build_custom_project "$arg"
-      ;;
-  esac
-done
+# Build the photo-gallary project
+build_photo_gallary
+PHOTO_GALLARY_BUILT=true
 
-# If BUILD_ALL is true, build all projects that haven't been built yet
-if [ "$BUILD_ALL" = true ]; then
-  [ "$PHOTO_GALLARY_BUILT" = false ] && build_photo_gallary
-fi
-
-# Create target directory if it doesn't exist
-if [ ! -d "$TARGET_DIR" ]; then
-  mkdir -p "$TARGET_DIR"
-fi
-# Function to clean and copy project
-clean_and_copy_project() {
-    local project_flag=$1
-    local target_subdir=$2
-    local source_dir=$3
-    local project_name=$4
-
-    if [ "$project_flag" = true ] && [ -d "$TARGET_DIR/$target_subdir" ]; then
-        echo "Cleaning target directory: $TARGET_DIR/$target_subdir"
-        rm -rf "$TARGET_DIR/$target_subdir"
-    fi
-
-    if [ "$project_flag" = true ]; then
-        mkdir -p "$TARGET_DIR/$target_subdir"
-        cp -r "$CURRENT_DIR/$source_dir/out/"* "$TARGET_DIR/$target_subdir/"
-        echo "Copied $project_name build to $TARGET_DIR/$target_subdir/"
-    fi
-}
-
-# Clean and copy for each project
-# For photo-gallary, use project_name as target_subdir for common functionality
-clean_and_copy_project "$PHOTO_GALLARY_BUILT" "photo-gallary" "photo-gallary" "photo-gallary"
-
-# Clean directories for custom projects
-for project_name in $CUSTOM_PROJECTS_LIST; do
-    if [ -n "$project_name" ] && [ -d "$TARGET_DIR/$project_name" ]; then
-        clean_and_copy_project "true" "$project_name" "$project_name" "$project_name"
-    fi
-done
-
-# Copy build results to target directory
-echo "Copying build results to $TARGET_DIR"
-# Copy build results for custom projects
-for project_name in $CUSTOM_PROJECTS_LIST; do
-  if [ -n "$project_name" ]; then
-    mkdir -p "$TARGET_DIR/$project_name"
-    cp -r "$CURRENT_DIR/$project_name/out/"* "$TARGET_DIR/$project_name/"
-    echo "Copied $project_name build to $TARGET_DIR/$project_name/"
-  fi
-done
+# Copy static files to the appropriate location
+copy_static_files
 
 echo "Build process completed successfully!"
+
+# Display deployment information
+if [ "$DEPLOY_ENV" = "local" ]; then
+  echo ""
+  echo "=== LOCAL DEPLOYMENT INFORMATION ==="
+  echo "Static files have been copied to: $LOCAL_TARGET_DIR"
+  echo ""
+  echo "The API will be available at: http://localhost:3001"
+else
+  echo ""
+  echo "=== SERVER DEPLOYMENT INFORMATION ==="
+  echo "Static files have been copied to: $TARGET_DIR"
+fi
