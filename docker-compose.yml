@@ -1,4 +1,9 @@
+networks:
+  youlai-boot:
+    driver: bridge
+
 services:
+
 #  # Frontend service (nginx)
 #  photo-frontend:
 #    image: nginx:alpine
