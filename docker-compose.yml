@@ -1,7 +1,7 @@
 networks:
   youlai-boot:
-  external: true
-  name: docker_youlai-boot
+    external: 
+      name: docker_youlai-boot
 
 services:
 
