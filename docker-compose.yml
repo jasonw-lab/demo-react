@@ -1,6 +1,7 @@
 networks:
   youlai-boot:
-    driver: bridge
+  external: true
+  name: docker_youlai-boot
 
 services:
 
