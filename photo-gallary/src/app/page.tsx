@@ -25,13 +25,32 @@ import {
 import Image from 'next/image'
 
 // MinIOのベースURL（環境変数から取得）
-const MINIO_BASE_URL = `${process.env.MINIO_PUBLIC_URL || 'http://localhost:9000'}/photos`
+const MINIO_BASE_URL = `${process.env.NEXT_PUBLIC_MINIO_PUBLIC_URL || 'http://localhost:9000'}/photos`
 // const MINIO_BASE_URL = 'http://localhost:64131/photos'
 function getPhotoUrl(fileName: string, folder?: string) {
+    console.log('MINIO_PUBLIC_URL:', process.env.NEXT_PUBLIC_MINIO_PUBLIC_URL)
+    console.log('fileName:', fileName)
+
     if (!fileName) return ''
-    if (fileName.startsWith('http')) return fileName
-    const folderPath = folder ? `/${folder}` : ''
-    return `${MINIO_BASE_URL}${folderPath}/${fileName}`
+
+    // If the URL is already a full URL, extract just the path part after the domain
+    if (fileName.startsWith('http')) {
+        try {
+            const url = new URL(fileName)
+
+            console.log('url:', url)
+            console.log('url.pathname:', url.pathname)
+
+            return url.pathname
+        } catch (e) {
+            console.error('Invalid URL:', fileName, e)
+            return fileName
+        }
+    }
+
+    const folderPath = folder ? `/${encodeURIComponent(folder)}` : ''
+    const encodedFileName = encodeURIComponent(fileName)
+    return `${MINIO_BASE_URL}${folderPath}/${encodedFileName}`
 }
 
 function PhotoForm({
@@ -514,7 +533,6 @@ export default function Home() {
                                     <Image
                                         src={getPhotoUrl(
                                             photo.url,
-
                                             photo.folder
                                         )}
                                         alt={photo.title}

@@ -110,7 +110,7 @@ export const uploadFile = async (
     });
 
     // Return the URL to the uploaded file
-    return `${process.env.MINIO_PUBLIC_URL || `http://localhost:9000`}/${PHOTOS_BUCKET}/${encodeURIComponent(objectKey)}`;
+    return `${process.env.NEXT_PUBLIC_MINIO_PUBLIC_URL || process.env.MINIO_PUBLIC_URL || `http://localhost:9000`}/${PHOTOS_BUCKET}/${encodeURIComponent(objectKey)}`;
   } catch (error: unknown) {
     // Provide more detailed error information
     const errorMessage = error instanceof Error ? error.message : String(error);

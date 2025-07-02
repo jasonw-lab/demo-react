@@ -21,12 +21,14 @@ COPY photo-gallary/next-env.d.ts ./
 COPY photo-gallary/postcss.config.mjs ./
 COPY photo-gallary/eslint.config.mjs ./
 COPY photo-gallary/components.json ./
+# 本番環境用の環境変数ファイルをコピー
+COPY photo-gallary/.env.production ./.env
 # ESLint configuration is already copied as eslint.config.mjs
 
 # Next.jsアプリケーションをビルド
 # ※ next.config.tsで `output: 'standalone'` の設定が必須です
 # TypeScriptの設定ファイルをJavaScriptにコンパイル
-RUN echo 'module.exports = { basePath: "/photo-gallary", output: "standalone" };' > next.config.js
+#RUN echo 'module.exports = { basePath: "/photo-gallary", output: "standalone" };' > next.config.js
 # Build the Next.js application
 RUN npm run build
 
@@ -50,8 +52,12 @@ RUN npm ci --only=production
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.js ./
+#COPY --from=builder /app/next.config.js ./
+COPY --from=builder /app/next.config.ts ./
+
 COPY --from=builder /app/prisma ./prisma/
+# 環境変数ファイルをコピー
+COPY --from=builder /app/.env ./
 
 # Next.js standalone mode handles basePath automatically, no need to create directories
 

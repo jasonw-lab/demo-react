@@ -67,6 +67,7 @@ MINIO_ACCESS_KEY="minioadmin"
 MINIO_SECRET_KEY="minioadmin"
 MINIO_BUCKET="photos"
 MINIO_PUBLIC_URL="http://localhost:9000"
+NEXT_PUBLIC_MINIO_PUBLIC_URL="http://localhost:9000"
 ```
 
 `username`と`password`をあなたのMySQL認証情報に置き換えてください。
@@ -95,81 +96,7 @@ pnpm dev
 
 ## Dockerセットアップ（代替方法）
 
-Docker Composeを使用して、アプリケーションスタック全体（Next.js、MySQL、Minio）を実行することもできます：
-
-1. ルートディレクトリに`docker-compose.yml`ファイルを作成します：
-
-```yaml
-version: '3'
-
-services:
-  app:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - DATABASE_URL=mysql://root:password@mysql:3306/photo_gallery
-      - MINIO_ENDPOINT=minio
-      - MINIO_PORT=9000
-      - MINIO_USE_SSL=false
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin
-      - MINIO_BUCKET=photos
-      - MINIO_PUBLIC_URL=http://localhost:9000
-    depends_on:
-      - mysql
-      - minio
-
-  mysql:
-    image: mysql:8
-    environment:
-      - MYSQL_ROOT_PASSWORD=password
-      - MYSQL_DATABASE=photo_gallery
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql-data:/var/lib/mysql
-
-  minio:
-    image: minio/minio
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin
-    volumes:
-      - minio-data:/data
-    command: server /data --console-address ":9001"
-
-volumes:
-  mysql-data:
-  minio-data:
-```
-
-2. ルートディレクトリに`Dockerfile`を作成します：
-
-```Dockerfile
-FROM node:18-alpine
-
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm install
-
-COPY . .
-
-RUN npx prisma generate
-RUN npm run build
-
-CMD ["npm", "start"]
-```
-
-3. アプリケーションスタックを実行します：
-
-```bash
-docker-compose up -d
-```
+docker-compose.ymlを参照
 
 ## プロジェクト構造
 
