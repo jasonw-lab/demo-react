@@ -57,7 +57,7 @@ export function Header({ onAddPhotoClick, onToggleFolderMenu, onAddFolderClick }
                         className='text-gray-700 hover:bg-gray-300/40'
                         onClick={onToggleFolderMenu}
                     >
-                        写真フォルダ <span className="text-xs text-gray-500 ml-1">v{packageInfo.version}</span>
+                        フォルダ一覧 <span className="text-xs text-gray-500 ml-1">v{packageInfo.version}</span>
                     </Button>
                 </nav>
             </div>
