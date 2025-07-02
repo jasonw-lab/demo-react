@@ -28,8 +28,8 @@ import Image from 'next/image'
 const MINIO_BASE_URL = `${process.env.NEXT_PUBLIC_MINIO_PUBLIC_URL || 'http://localhost:9000'}/photos`
 // const MINIO_BASE_URL = 'http://localhost:64131/photos'
 function getPhotoUrl(fileName: string, folder?: string) {
-    console.log('MINIO_PUBLIC_URL:', process.env.NEXT_PUBLIC_MINIO_PUBLIC_URL)
-    console.log('fileName:', fileName)
+    // console.log('MINIO_PUBLIC_URL:', process.env.NEXT_PUBLIC_MINIO_PUBLIC_URL)
+    // console.log('fileName:', fileName)
 
     if (!fileName) return ''
 
