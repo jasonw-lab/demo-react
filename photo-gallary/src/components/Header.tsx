@@ -7,6 +7,8 @@ import {
     DropdownMenuItem
 } from './ui/dropdown-menu'
 import { ChevronDown } from 'lucide-react'
+// Import package.json to get version information
+import packageInfo from '../../package.json'
 
 export function Header({ onAddPhotoClick, onToggleFolderMenu, onAddFolderClick }: { onAddPhotoClick?: () => void, onToggleFolderMenu?: () => void, onAddFolderClick?: () => void }) {
     return (
@@ -55,7 +57,7 @@ export function Header({ onAddPhotoClick, onToggleFolderMenu, onAddFolderClick }
                         className='text-gray-700 hover:bg-gray-300/40'
                         onClick={onToggleFolderMenu}
                     >
-                        写真フォルダ
+                        写真フォルダ <span className="text-xs text-gray-500 ml-1">v{packageInfo.version}</span>
                     </Button>
                 </nav>
             </div>
