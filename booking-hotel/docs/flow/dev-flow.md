@@ -146,6 +146,26 @@ git push -u origin feature/issue-XXX-<slug>
 
 **目的**：レビューとマージの標準化。
 
+#### 6.1 PR作成コマンド（GitHub CLI）
+
+```bash
+# 通常（base=develop）
+gh pr create --base develop --head feature/issue-XXX-<slug> \
+  --title "Issue-XXX <短い説明>" \
+  --body "Closes #<issue-number>"
+```
+
+#### 6.2 Stacked PR（前提ブランチが未マージの場合）
+
+Issue-002 が Issue-001 を前提にしている等、**前提のブランチがまだ develop に入っていない**場合は、
+PRの base を前提ブランチにして「差分を Issue 単位に保つ」。
+
+```bash
+gh pr create --base feature/issue-001-<slug> --head feature/issue-002-<slug> \
+  --title "Issue-002 <短い説明>" \
+  --body $'Closes #<issue-002-number>\n\nDepends on: feature/issue-001-<slug>'
+```
+
 PR本文に含める（推奨）：
 
 * 対象Issue番号/リンク
