@@ -63,5 +63,6 @@ export type BookingInfo = {
   email: string;
   phone?: string;
   specialRequests?: string;
+  bookingRef?: string;
+  createdAt?: string; // ISO
 };
-

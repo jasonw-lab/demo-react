@@ -117,6 +117,12 @@ function PriceLine({
   );
 }
 
+function createBookingRef() {
+  const time = Date.now().toString(36).toUpperCase();
+  const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `BH-${time}-${rand}`;
+}
+
 function BookingPanel({
   hotel,
   selectedRoom,
@@ -169,6 +175,8 @@ function BookingPanel({
       email: values.email,
       phone: values.phone || undefined,
       specialRequests: values.specialRequests || undefined,
+      bookingRef: createBookingRef(),
+      createdAt: new Date().toISOString(),
     };
 
     startTransition(() => {
@@ -652,4 +660,3 @@ export function HotelDetail({ hotel, search }: HotelDetailProps) {
     </main>
   );
 }
-
