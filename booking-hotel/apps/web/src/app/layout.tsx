@@ -3,6 +3,7 @@ import "./globals.css";
 
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
+import { BookingProvider } from "@/components/booking/booking-provider";
 
 export const metadata: Metadata = {
   title: "Booking Hotel Demo",
@@ -17,9 +18,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="antialiased">
       <body className="font-sans">
-        <Header />
-        <div className="min-h-[calc(100dvh-3.5rem)]">{children}</div>
-        <Footer />
+        <BookingProvider>
+          <Header />
+          <div className="min-h-[calc(100dvh-3.5rem)]">{children}</div>
+          <Footer />
+        </BookingProvider>
       </body>
     </html>
   );

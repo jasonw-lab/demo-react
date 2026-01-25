@@ -54,6 +54,12 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+type SearchFormProps = {
+  initialValues?: Partial<FormValues>;
+  variant?: "card" | "plain";
+  className?: string;
+};
+
 function toYmd(date: Date) {
   return format(date, "yyyy-MM-dd");
 }
@@ -62,7 +68,7 @@ function safeNumber(value: number, fallback: number) {
   return Number.isFinite(value) ? value : fallback;
 }
 
-export function SearchForm() {
+export function SearchForm({ initialValues, variant = "card", className }: SearchFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = React.useTransition();
 
@@ -76,9 +82,22 @@ export function SearchForm() {
       adults: 2,
       children: 0,
       rooms: 1,
+      ...initialValues,
     },
     mode: "onBlur",
   });
+
+  React.useEffect(() => {
+    if (!initialValues) return;
+    form.reset({
+      destinationId: "",
+      dateRange: { from: undefined, to: undefined },
+      adults: 2,
+      children: 0,
+      rooms: 1,
+      ...initialValues,
+    });
+  }, [form, initialValues]);
 
   const onSubmit = (values: FormValues) => {
     const from = values.dateRange.from;
@@ -98,8 +117,10 @@ export function SearchForm() {
     });
   };
 
+  const Wrapper = variant === "card" ? Card : "div";
+
   return (
-    <Card className="p-5 sm:p-6">
+    <Wrapper className={cn(variant === "card" ? "p-5 sm:p-6" : "", className)}>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
           <div className="grid gap-4 md:grid-cols-2">
@@ -109,7 +130,7 @@ export function SearchForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>目的地</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="都市を選択" />
@@ -251,6 +272,6 @@ export function SearchForm() {
           </Button>
         </form>
       </Form>
-    </Card>
+    </Wrapper>
   );
 }
